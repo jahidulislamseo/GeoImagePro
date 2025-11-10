@@ -173,11 +173,13 @@ def process_image():
     img.save(output, format=img.format or 'JPEG', exif=exif_bytes)
     output.seek(0)
     
+    filename = file.filename or 'image.jpg'
+    
     return send_file(
         output,
         mimetype='image/jpeg',
         as_attachment=True,
-        download_name=f'geotagged_{secure_filename(file.filename)}'
+        download_name=f'geotagged_{secure_filename(filename)}'
     )
 
 @app.route('/api/export-zip', methods=['POST'])
@@ -191,8 +193,9 @@ def export_zip():
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for file in files:
-            if allowed_file(file.filename):
-                zip_file.writestr(secure_filename(file.filename), file.read())
+            filename = file.filename or 'image.jpg'
+            if allowed_file(filename):
+                zip_file.writestr(secure_filename(filename), file.read())
     
     zip_buffer.seek(0)
     

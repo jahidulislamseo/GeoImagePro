@@ -1,225 +1,252 @@
 # GeoTag Pro - Advanced Photo Geotagging Application
 
 ## Overview
-GeoTag Pro is a comprehensive web application for adding geotags and metadata to photos. It supports JPG, PNG, WebP, and HEIC formats, offering both basic and advanced features for professional image management.
-
-## Recent Updates (November 2024)
-
-### Phase 1 Features - Completed
-1. **Database Schema & Storage**
-   - PostgreSQL database integration
-   - Location templates storage
-   - Batch job tracking
-   - AI job management
-   - In-memory storage implementation with full CRUD operations
-
-2. **Dark Mode**
-   - Theme toggle with light/dark modes
-   - Persistent theme selection via localStorage
-   - Smooth theme transitions across all components
-
-3. **Batch Processing**
-   - Select multiple images simultaneously
-   - Apply geotags to all selected images at once
-   - Visual batch selection UI with select/deselect all
-   - Batch progress tracking
-
-4. **Location Templates**
-   - Save frequently used locations
-   - Quick access to saved locations
-   - Template management (create, view, delete)
-   - One-click location application
-
-5. **Advanced EXIF Metadata**
-   - Extended EXIF fields editor (collapsible)
-   - Copyright information
-   - Artist/Creator name
-   - Camera make and model
-   - Document name and descriptions
-   - Keywords with character counter (max 6,600 chars)
-   - Image descriptions (max 1,300 chars)
-
-6. **Server-Side Image Processing**
-   - Express API routes for all operations
-   - Multer file upload handling
-   - Sharp image processing integration
-   - ZIP archive generation for batch downloads
-   - EXIF writing infrastructure (piexifjs ready)
-
-7. **Enhanced Map Interface**
-   - Multiple map layer options (Streets, Satellite, Terrain)
-   - Interactive marker placement
-   - Zoom controls
-   - Real-time coordinate display
-   - Click-to-place geotag functionality
-
-8. **Image Editor**
-   - Rotation (90° increments)
-   - Brightness adjustment (0-200%)
-   - Contrast adjustment (0-200%)
-   - Saturation adjustment (0-200%)
-   - Real-time preview
-   - Reset functionality
-
-9. **AI Assistant UI**
-   - AI-powered location detection (UI ready)
-   - Smart keyword generation interface
-   - Auto-description generation interface
-   - Progress indicators for AI operations
-   - Error handling and feedback
-
-### Phase 2 Features - In Development
-10. **Python FastAPI Microservice**
-    - Planned for AI image analysis
-    - Will integrate with Gemini for image understanding
-    - Location inference from image content
-    - Keyword and description generation
-
-11. **Full AI Integration**
-    - Connect UI to Python backend
-    - Implement actual AI models
-    - Confidence scoring
-    - Fallback mechanisms
+GeoTag Pro হল একটি professional photo geotagging web application যা Python Flask, HTML, CSS এবং vanilla JavaScript দিয়ে তৈরি। এটি JPG, PNG, WebP, এবং HEIC ফরম্যাট support করে এবং images-এ GPS coordinates ও metadata যোগ করার জন্য advanced features প্রদান করে।
 
 ## Tech Stack
 
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Routing**: Wouter
-- **State Management**: React Query (TanStack Query v5)
-- **UI Components**: Shadcn UI + Radix UI
-- **Styling**: Tailwind CSS
-- **File Handling**: react-dropzone
-- **Map**: Static Mapbox tiles (Leaflet integration ready)
-- **EXIF Reading**: ExifReader
-- **Icons**: Lucide React
-
-### Backend
-- **Runtime**: Node.js with Express
+### Backend - Python Flask
+- **Framework**: Flask 3.1.2
 - **Database**: PostgreSQL (Neon-backed)
-- **ORM**: Drizzle ORM
-- **Image Processing**: Sharp
-- **File Upload**: Multer
-- **EXIF Writing**: piexifjs (integrated)
-- **Archive**: Archiver (ZIP creation)
-- **Validation**: Zod
+- **Image Processing**: Pillow (PIL)
+- **EXIF Handling**: piexif
+- **File Upload**: Werkzeug
+- **CORS**: flask-cors
+- **Archive**: zipfile (built-in)
 
-### Future (AI Layer)
-- **Microservice**: Python FastAPI
-- **AI**: Gemini API (planned)
-- **Image Analysis**: Computer Vision models
+### Frontend - HTML/CSS/JavaScript
+- **HTML5**: Semantic markup
+- **CSS3**: Custom styling with CSS variables for dark mode
+- **JavaScript**: Vanilla JS (no frameworks)
+- **Maps**: Leaflet.js 1.9.4
+- **Icons**: SVG inline icons
+
+## Key Features
+
+### 1. Image Upload & Management
+- Drag-and-drop interface
+- Multiple file upload support
+- Image preview gallery
+- File type validation (JPG, PNG, WebP, HEIC)
+- Maximum 50MB per file
+
+### 2. Interactive Map
+- Leaflet.js integration
+- Multiple map layers:
+  - Street Map (OpenStreetMap)
+  - Satellite View (Esri)
+  - Terrain View (OpenTopoMap)
+- Click-to-place marker
+- Draggable marker
+- Location search with Nominatim geocoding
+
+### 3. Batch Processing
+- Select multiple images
+- Apply same geotag to all selected
+- Batch progress tracking
+- Select all / Deselect all controls
+
+### 4. Location Templates
+- Save frequently used locations
+- Quick apply templates
+- Template management (create, view, delete)
+- Database persistence
+
+### 5. Metadata Editor
+- GPS coordinates (latitude/longitude)
+- Keywords (comma-separated)
+- Image description
+- Document name
+- Copyright information
+- Artist/Creator name
+
+### 6. EXIF Writing
+- Full GPS coordinate embedding
+- Copyright and artist metadata
+- Image description
+- Keywords support
+- Preserves existing EXIF data
+
+### 7. Export Options
+- Single image download
+- Batch ZIP export
+- Geotagged file naming
+
+### 8. Dark Mode
+- CSS variable-based theming
+- localStorage persistence
+- Smooth theme transitions
+- Toggle button in header
 
 ## Project Structure
 
 ```
-├── client/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Header.tsx (with dark mode toggle)
-│   │   │   ├── ThemeProvider.tsx
-│   │   │   ├── ThemeToggle.tsx
-│   │   │   ├── UploadZone.tsx
-│   │   │   ├── ImageThumbnail.tsx
-│   │   │   ├── MapInterface.tsx
-│   │   │   ├── MapLayerSelector.tsx
-│   │   │   ├── CoordinateInput.tsx
-│   │   │   ├── MetadataPanel.tsx
-│   │   │   ├── AdvancedExifEditor.tsx
-│   │   │   ├── LocationSearch.tsx
-│   │   │   ├── SearchHistory.tsx
-│   │   │   ├── LocationTemplateManager.tsx
-│   │   │   ├── BatchControls.tsx
-│   │   │   ├── ImageEditor.tsx
-│   │   │   ├── AIAssistant.tsx
-│   │   │   ├── HowItWorks.tsx
-│   │   │   ├── FAQ.tsx
-│   │   │   └── ui/ (Shadcn components)
-│   │   ├── pages/
-│   │   │   ├── Home.tsx (main application)
-│   │   │   └── not-found.tsx
-│   │   └── App.tsx (with ThemeProvider)
-├── server/
-│   ├── routes.ts (API endpoints)
-│   ├── storage.ts (data access layer)
-│   └── index.ts
-├── shared/
-│   └── schema.ts (Drizzle schemas + Zod validation)
-└── design_guidelines.md
+├── app.py                      # Flask backend server
+├── templates/
+│   └── index.html             # Main HTML template
+├── static/
+│   ├── css/
+│   │   └── style.css          # Complete CSS with dark mode
+│   └── js/
+│       └── app.js             # Frontend JavaScript logic
+├── requirements.txt           # Python dependencies (auto-generated)
+└── replit.md                  # This file
+```
 
 ## API Endpoints
 
 ### Location Templates
-- `GET /api/location-templates` - Get all templates
+- `GET /api/location-templates` - Get all saved templates
 - `POST /api/location-templates` - Create new template
-- `DELETE /api/location-templates/:id` - Delete template
-
-### Batch Processing
-- `POST /api/batch/process` - Create batch job
-- `GET /api/batch/:id` - Get batch job status
-
-### AI Analysis (Planned)
-- `POST /api/ai/analyze` - Submit AI analysis job
-- `GET /api/ai/:id` - Get AI job result
+  ```json
+  {
+    "name": "Central Park",
+    "latitude": 40.7829,
+    "longitude": -73.9654
+  }
+  ```
+- `DELETE /api/location-templates/<id>` - Delete template
 
 ### Image Processing
-- `POST /api/images/process` - Process single image with EXIF
-- `POST /api/images/export-zip` - Export multiple images as ZIP
+- `POST /api/process-image` - Process single image with EXIF
+  - Multipart form data with image file and metadata
+  - Returns geotagged image for download
+
+- `POST /api/export-zip` - Export multiple images as ZIP
+  - Multipart form data with multiple image files
+  - Returns ZIP archive
 
 ## Database Schema
 
-### Location Templates
-- id, name, latitude, longitude, createdAt
+### location_templates
+```sql
+CREATE TABLE location_templates (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-### Batch Jobs
-- id, status, totalImages, processedImages, latitude, longitude
-- keywords, description, documentName, createdAt, completedAt
+### batch_jobs (for future use)
+```sql
+CREATE TABLE batch_jobs (
+    id SERIAL PRIMARY KEY,
+    status VARCHAR(50) NOT NULL,
+    total_images INTEGER NOT NULL,
+    processed_images INTEGER DEFAULT 0,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    keywords TEXT,
+    description TEXT,
+    document_name VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
+```
 
-### AI Jobs
-- id, status, jobType, result (JSON), error, createdAt, completedAt
+## Running the Application
 
-## Key Features
+### Development
+```bash
+python app.py
+```
+Server starts on `http://localhost:5000`
 
-1. **Multi-Format Support**: JPG, PNG, WebP, HEIC
-2. **Batch Operations**: Process multiple images at once
-3. **Smart Templates**: Save and reuse locations
-4. **Advanced Metadata**: Full EXIF control
-5. **Map Integration**: Multiple view types
-6. **Dark Mode**: System-wide theme support
-7. **Image Editing**: Basic adjustments and filters
-8. **AI-Ready**: Infrastructure for AI features
-9. **Export Options**: Single or batch ZIP download
-10. **Search History**: Recent locations tracking
-
-## Development Commands
-
-- `npm run dev` - Start development server
-- `npm run db:push` - Push schema changes to database
-
-## Environment Variables
-
-- `DATABASE_URL` - PostgreSQL connection string
+### Environment Variables
+- `DATABASE_URL` - PostgreSQL connection string (auto-configured on Replit)
 - `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` - DB config
-- `SESSION_SECRET` - Session encryption key
+
+## Features Implementation Details
+
+### GPS Coordinate Conversion
+```python
+def lat_to_dms(lat):
+    """Convert decimal latitude to DMS format for EXIF"""
+    degrees = int(lat)
+    minutes = int((lat - degrees) * 60)
+    seconds = int((lat - degrees - minutes / 60) * 3600 * 100)
+    return ((degrees, 1), (minutes, 1), (seconds, 100))
+```
+
+### EXIF Writing
+- Uses `piexif` library for GPS and metadata
+- Preserves existing EXIF data
+- Supports GPS coordinates, copyright, artist, description, keywords
+- Handles multiple image formats
+
+### Map Integration
+- Leaflet.js for interactive maps
+- Three tile layer options
+- Marker drag-and-drop
+- Click-to-place functionality
+- Search integration with Nominatim API
+
+### Dark Mode Implementation
+```css
+:root {
+    --bg-primary: #ffffff;
+    --text-primary: #1a1a1a;
+    /* ... light theme variables */
+}
+
+[data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --text-primary: #f5f5f5;
+    /* ... dark theme variables */
+}
+```
+
+## User Workflow
+
+1. **Upload Images**: Drag and drop or click to browse
+2. **Set Location**: 
+   - Click on map to place marker
+   - Search for location
+   - Use saved template
+   - Enter coordinates manually
+3. **Add Metadata**: Fill in keywords, description, copyright, etc.
+4. **Process**:
+   - Single image: Click "Process & Download"
+   - Multiple images: Select images → "Apply to Selected"
+   - Export all: Click "Export All as ZIP"
+
+## Browser Compatibility
+
+- Modern browsers (Chrome, Firefox, Safari, Edge)
+- ES6+ JavaScript support required
+- No polyfills needed for target browsers
+
+## Security Features
+
+- File type validation
+- Secure filename handling
+- Maximum file size limit (50MB)
+- CORS enabled for development
+- No permanent image storage
+
+## Future Enhancements (Optional)
+
+- AI-powered location detection
+- Automatic keyword generation
+- Image editing tools (crop, rotate, filters)
+- User authentication
+- Cloud storage integration
+- Multiple language support
 
 ## Notes
 
-- Images are processed in-memory and not stored on server
-- All data persists in PostgreSQL database
-- Frontend uses modern React patterns (hooks, query, context)
-- Backend follows RESTful conventions
-- Type-safe end-to-end with TypeScript and Zod
-- Responsive design with mobile-first approach
-- Accessibility features with proper test IDs
-- Dark mode support with system preference detection
+- All image processing happens server-side
+- Images are NOT permanently stored
+- Database only stores location templates
+- Uses localStorage for theme preference
+- Responsive design for mobile devices
 
-## Future Enhancements
+## Bengali/Bangla Support
 
-- Real geocoding API integration (Google Maps/Mapbox)
-- Python microservice for AI features
-- Actual EXIF writing with piexifjs
-- Real-time batch progress updates
-- User authentication
-- Cloud storage integration
-- Advanced image editing (crop, filters)
-- GPX track import
-- Multiple language support
+এই application Bengali ভাষায় comments এবং documentation support করে। User interface English-এ আছে কিন্তু সহজে Bengali-এ অনুবাদ করা যাবে।
+
+## License
+
+MIT License - Free to use and modify
