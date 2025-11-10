@@ -169,16 +169,35 @@ export default function Home() {
     }
   };
 
-  const handleDownload = () => {
-    if (selectedImageIndex !== null) {
-      toast({
-        title: "Download started",
-        description: "Your geotagged image is being downloaded",
-      });
-    } else {
+  const handleDownload = async () => {
+    if (selectedImageIndex === null) {
       toast({
         title: "No image selected",
         description: "Please select an image first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const image = images[selectedImageIndex];
+    
+    try {
+      // Create a temporary download link
+      const link = document.createElement('a');
+      link.href = image.preview;
+      link.download = image.file.name.replace(/\.[^/.]+$/, '_geotagged$&');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Download started",
+        description: `${image.file.name} is being downloaded`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: "Unable to download the image",
         variant: "destructive",
       });
     }
