@@ -195,16 +195,23 @@ export default function MapInterface({
         </div>
 
         <div
-          className="w-full h-full cursor-crosshair relative"
+          className="w-full h-full cursor-crosshair relative overflow-hidden"
           onClick={handleMapClick}
           data-testid="div-map-container"
-          style={{
-            backgroundImage: mapUrl ? `url(${mapUrl})` : 'none',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
         >
+          {mapUrl && (
+            <img
+              src={mapUrl}
+              alt="Map"
+              className="w-full h-full object-cover"
+              data-testid="img-map"
+            />
+          )}
+          {!mapUrl && (
+            <div className="w-full h-full flex items-center justify-center bg-muted">
+              <p className="text-muted-foreground">Loading map...</p>
+            </div>
+          )}
           <div
             className="absolute transform -translate-x-1/2 -translate-y-full"
             style={{
@@ -213,7 +220,7 @@ export default function MapInterface({
             }}
             data-testid="icon-map-marker"
           >
-            <MapPin className="w-8 h-8 text-destructive fill-destructive" />
+            <MapPin className="w-8 h-8 text-destructive fill-destructive drop-shadow-lg" />
           </div>
         </div>
 
