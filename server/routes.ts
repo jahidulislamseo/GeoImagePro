@@ -4,6 +4,7 @@ import multer from "multer";
 import sharp from "sharp";
 import archiver from "archiver";
 import { z } from "zod";
+import piexif from "piexifjs";
 import { storage } from "./storage";
 import {
   insertLocationTemplateSchema,
@@ -121,56 +122,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const metadata = metadataSchema.parse(req.body);
 
-      // Convert decimal degrees to GPS format for EXIF
-      const toGPSCoordinate = (decimal: number, isLatitude: boolean) => {
+      // Validate image buffer before processing
+      let processedBuffer: Buffer;
+      try {
+        // Test if image is valid by getting metadata
+        await sharp(req.file.buffer).metadata();
+        
+        // Process image with sharp (optimize, convert to JPEG)
+        processedBuffer = await sharp(req.file.buffer)
+          .jpeg({ quality: 95 })
+          .toBuffer();
+      } catch (imageError) {
+        console.error('Invalid image file:', imageError);
+        return res.status(400).json({ 
+          error: "Invalid image file", 
+          details: "The uploaded file is not a valid image or is corrupted"
+        });
+      }
+
+      // Convert decimal degrees to GPS EXIF format (degrees, minutes, seconds)
+      const toGPSCoordinate = (decimal: number): [[number, number], [number, number], [number, number]] => {
         const absolute = Math.abs(decimal);
         const degrees = Math.floor(absolute);
         const minutesFloat = (absolute - degrees) * 60;
         const minutes = Math.floor(minutesFloat);
         const seconds = (minutesFloat - minutes) * 60;
         
-        const ref = isLatitude 
-          ? (decimal >= 0 ? 'N' : 'S')
-          : (decimal >= 0 ? 'E' : 'W');
-        
-        return {
-          degrees: [degrees, 1],
-          minutes: [minutes, 1],
-          seconds: [Math.round(seconds * 100), 100],
-          ref
-        };
+        return [
+          [degrees, 1],
+          [minutes, 1],
+          [Math.round(seconds * 10000), 10000]
+        ];
       };
 
-      const lat = toGPSCoordinate(metadata.latitude, true);
-      const lon = toGPSCoordinate(metadata.longitude, false);
+      // Convert buffer to base64 for piexifjs
+      const base64Image = "data:image/jpeg;base64," + processedBuffer.toString('base64');
 
-      // Process image with sharp - add GPS and metadata
-      const imageBuffer = await sharp(req.file.buffer)
-        .withMetadata({
-          exif: {
-            IFD0: {
-              Copyright: metadata.copyright || '',
-              Artist: metadata.artist || '',
-              ImageDescription: metadata.description || '',
-              DocumentName: metadata.documentName || '',
-            },
-            IFD1: {
-              XPKeywords: metadata.keywords ? Buffer.from(metadata.keywords, 'utf16le') : undefined,
-            },
-          },
-        })
-        .jpeg({ quality: 95 })
-        .toBuffer();
+      // Load existing EXIF data or create new
+      let exifObj: any;
+      try {
+        exifObj = piexif.load(base64Image);
+      } catch (e) {
+        // If no EXIF data exists, create new
+        exifObj = { "0th": {}, "Exif": {}, "GPS": {}, "Interop": {}, "1st": {} };
+      }
 
-      // Note: Sharp has limited GPS EXIF support
-      // GPS data is best added using a specialized library like piexif
-      // For now, other metadata is added successfully
+      // Add GPS coordinates
+      exifObj.GPS[piexif.GPSIFD.GPSLatitudeRef] = metadata.latitude >= 0 ? 'N' : 'S';
+      exifObj.GPS[piexif.GPSIFD.GPSLatitude] = toGPSCoordinate(metadata.latitude);
+      exifObj.GPS[piexif.GPSIFD.GPSLongitudeRef] = metadata.longitude >= 0 ? 'E' : 'W';
+      exifObj.GPS[piexif.GPSIFD.GPSLongitude] = toGPSCoordinate(metadata.longitude);
+
+      // Add other metadata (text fields)
+      if (metadata.artist) {
+        exifObj["0th"][piexif.ImageIFD.Artist] = metadata.artist;
+      }
+      if (metadata.copyright) {
+        exifObj["0th"][piexif.ImageIFD.Copyright] = metadata.copyright;
+      }
+      if (metadata.description) {
+        exifObj["0th"][piexif.ImageIFD.ImageDescription] = metadata.description;
+      }
+      if (metadata.documentName) {
+        exifObj["0th"][piexif.ImageIFD.DocumentName] = metadata.documentName;
+      }
+      
+      // Add keywords to Exif UserComment (more reliable than XPKeywords)
+      if (metadata.keywords) {
+        exifObj.Exif[piexif.ExifIFD.UserComment] = metadata.keywords;
+      }
+
+      // Convert EXIF object to bytes
+      const exifBytes = piexif.dump(exifObj);
+
+      // Insert EXIF data into image
+      const finalImage = piexif.insert(exifBytes, base64Image);
+
+      // Convert back to buffer
+      const finalBuffer = Buffer.from(finalImage.split(',')[1], 'base64');
 
       res.set({
         "Content-Type": "image/jpeg",
         "Content-Disposition": `attachment; filename="geotagged_${req.file.originalname}"`,
       });
-      res.send(imageBuffer);
+      res.send(finalBuffer);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid metadata", details: error.errors });
