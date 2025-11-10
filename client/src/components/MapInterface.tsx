@@ -53,35 +53,19 @@ export default function MapInterface({
     const width = 800;
     const height = 500;
     
-    const styleMap: Record<MapLayerType, string> = {
-      streets: `https://tile.openstreetmap.org/${zoom}/${getLngTile(longitude, zoom)}/${getLatTile(latitude, zoom)}.png`,
-      satellite: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${getLatTile(latitude, zoom)}/${getLngTile(longitude, zoom)}`,
-      hybrid: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${getLatTile(latitude, zoom)}/${getLngTile(longitude, zoom)}`,
-      terrain: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${zoom}/${getLatTile(latitude, zoom)}/${getLngTile(longitude, zoom)}`,
-    };
+    const baseUrl = 'https://api.mapbox.com/styles/v1/mapbox';
+    const token = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
     
-    return `https://api.mapbox.com/styles/v1/mapbox/${getMapboxStyle()}/static/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw`;
-  };
-
-  const getMapboxStyle = () => {
-    const styles: Record<MapLayerType, string> = {
+    const styleMap: Record<MapLayerType, string> = {
       streets: 'streets-v12',
       satellite: 'satellite-v9',
       hybrid: 'satellite-streets-v12',
       terrain: 'outdoors-v12',
     };
-    return styles[mapLayer];
-  };
-
-  const getLngTile = (lng: number, zoom: number) => {
-    return Math.floor(((lng + 180) / 360) * Math.pow(2, zoom));
-  };
-
-  const getLatTile = (lat: number, zoom: number) => {
-    return Math.floor(
-      ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
-        Math.pow(2, zoom)
-    );
+    
+    const style = styleMap[mapLayer];
+    
+    return `${baseUrl}/${style}/static/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${token}&t=${Date.now()}`;
   };
 
   const layerLabels: Record<MapLayerType, string> = {
