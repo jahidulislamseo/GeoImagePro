@@ -1,71 +1,92 @@
-# GeoTag Pro - Advanced Photo Geotagging Application
+# GeoTag Pro - Advanced AI-Powered Photo Geotagging Application
 
 ## Overview
-GeoTag Pro হল একটি **professional photo geotagging web application** যা **Python Flask backend** এবং **vanilla HTML/CSS/JavaScript frontend** দিয়ে তৈরি। এটি JPG, PNG, WebP, এবং HEIC format support করে এবং images-এ GPS coordinates ও metadata যোগ করার জন্য **23+ advanced features** প্রদান করে।
+GeoTag Pro is a **professional photo geotagging web application** built with **React/TypeScript frontend** and **Node.js/Express backend**. It supports JPG, PNG, WebP, and HEIC formats and provides **GPS EXIF writing**, **interactive maps**, **AI features**, and **batch processing**.
 
-## Current Status
-✅ **সম্পূর্ণ এবং Production-Ready**
-- সব core features implemented
-- 23+ advanced features যোগ করা হয়েছে
-- AI integration সহ (Google Gemini Vision)
-- Bengali/English bilingual support
-- GPX track file import
-- Database configured এবং ready
+## Current Status (November 10, 2024)
+✅ **Production-Ready with Latest Features**
+- ✅ Complete GPS EXIF writing with piexifjs
+- ✅ Interactive maps with Map/Satellite tabs
+- ✅ Dual search (Place Search + Text Search)
+- ✅ Image upload, selection, batch processing
+- ✅ Location templates with database persistence
+- ✅ Auto-download with geotagged files
+- ✅ Real-time coordinate updates
+- ✅ Responsive UI with Shadcn components
 
 ## Tech Stack
 
-### Backend - Python Flask
-- **Framework**: Flask 3.1.2
+### Backend - Node.js/Express
+- **Framework**: Express.js
 - **Database**: PostgreSQL (Neon-backed) ✅ Configured
-- **Image Processing**: Pillow (PIL)
-- **EXIF Handling**: piexif
-- **File Upload**: Werkzeug
-- **CORS**: flask-cors
-- **Archive**: zipfile (built-in)
-- **AI Integration**: requests (for Gemini API)
+- **Image Processing**: Sharp
+- **EXIF Writing**: piexifjs ✅ GPS coordinates working
+- **File Upload**: Multer (multipart/form-data)
+- **Archive**: Archiver (ZIP export)
+- **TypeScript**: Full type safety
 
-### Frontend - Vanilla JavaScript
-- **HTML5**: Semantic markup
-- **CSS3**: Custom styling with CSS variables for dark mode
-- **JavaScript**: ES6+ Vanilla JS (no frameworks)
-- **Maps**: Leaflet.js 1.9.4
-- **Icons**: SVG inline icons
+### Frontend - React/TypeScript
+- **Framework**: React 18 with TypeScript
+- **UI Library**: Shadcn/UI components
+- **Styling**: Tailwind CSS
+- **State Management**: React hooks + TanStack Query
+- **Routing**: Wouter (lightweight routing)
+- **Maps**: OpenStreetMap + ESRI ArcGIS tiles
+- **Icons**: Lucide React
 
-## Features (23+ Total)
+## Core Features
 
-### Core Features (1-6)
-1. **Image Upload & Management**
-   - Drag-and-drop interface
-   - Multiple file support
-   - File type validation
-   - Image preview gallery
+### 1. ✅ GPS EXIF Writing (piexifjs)
+- **Latitude/Longitude** in DMS (Degrees/Minutes/Seconds) format
+- **GPS References**: North/South, East/West
+- **Metadata fields**: Artist, Copyright, Description, Document Name, Keywords
+- **Backend processing** with validation
+- **Auto-download** of geotagged images
+- **File**: `server/routes.ts` (API endpoint `/api/images/process`)
 
-2. **Interactive Map (Leaflet.js)**
-   - Click-to-place marker
-   - Draggable marker
-   - 3 map layers (Street, Satellite, Terrain)
-   - Location search (Nominatim)
+### 2. ✅ Interactive Map Interface
+- **Map/Satellite Tabs** - Toggle between street and satellite views
+- **Dual Search System**:
+  - **Place Search** - Search for places and addresses
+  - **Text Search** - Enter keywords or coordinates
+- **Real-time Updates** - Map centers when coordinates are entered
+- **Click-to-place** marker on map
+- **GPS Detection** - Get current location button
+- **Zoom controls** - Plus/Minus buttons
+- **Fullscreen mode** - Expand map to full screen
+- **Coordinate display** - Shows lat/lng in real-time
+- **File**: `client/src/components/MapInterface.tsx`
 
-3. **Batch Processing**
-   - Select multiple images
-   - Apply geotag to all selected
-   - Progress tracking
+### 3. ✅ Image Upload & Management
+- **Drag-and-drop** interface
+- **Multiple file support** (JPG, PNG, WebP, HEIC)
+- **File validation** (50MB limit)
+- **Thumbnail gallery** with selection
+- **Preview display** with metadata
+- **File**: `client/src/pages/Home.tsx`
 
-4. **Location Templates**
-   - Save frequently used locations
-   - Quick apply
-   - Database persistence
+### 4. ✅ Location Templates
+- **Save locations** to database
+- **Quick apply** saved coordinates
+- **Delete templates** when not needed
+- **PostgreSQL persistence**
+- **File**: `server/storage.ts`
 
-5. **EXIF Metadata Editor**
-   - GPS coordinates
-   - Keywords, description
-   - Copyright, artist
-   - Document name
+### 5. ✅ Metadata Editor
+- **GPS Coordinates** (Latitude/Longitude)
+- **Keywords & Tags** (Max 6,600 chars)
+- **Description/Alt Text** (Max 1,300 chars)
+- **Artist/Photographer** name
+- **Copyright** information
+- **Document Name** (EXIF field)
+- **File**: `client/src/components/MetadataPanel.tsx`
 
-6. **Export Options**
-   - Single image download
-   - Batch ZIP export
-   - Custom naming
+### 6. ✅ Batch Processing & Export
+- **Select All** checkbox
+- **Batch apply** coordinates to multiple images
+- **ZIP export** for multiple files
+- **Individual download** with `geotagged_` prefix
+- **File**: `server/routes.ts` (ZIP endpoint)
 
 ### Advanced Features (7-23)
 

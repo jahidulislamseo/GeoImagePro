@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, Plus, Minus, Layers, Search, Maximize2, Minimize2, Navigation } from "lucide-react";
 import {
   DropdownMenu,
@@ -28,8 +29,10 @@ export default function MapInterface({
   const [zoom, setZoom] = useState(13);
   const [mapLayer, setMapLayer] = useState<MapLayerType>('streets');
   const [searchQuery, setSearchQuery] = useState('');
+  const [textSearchQuery, setTextSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapUrl, setMapUrl] = useState('');
+  const [searchType, setSearchType] = useState<'place' | 'text'>('place');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -87,7 +90,7 @@ export default function MapInterface({
     terrain: '⛰️ Terrain',
   };
 
-  const handleSearch = async () => {
+  const handlePlaceSearch = async () => {
     if (!searchQuery.trim()) return;
 
     try {
@@ -119,6 +122,43 @@ export default function MapInterface({
       toast({
         title: "Search failed",
         description: "Unable to search location",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTextSearch = async () => {
+    if (!textSearchQuery.trim()) return;
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(textSearchQuery)}`
+      );
+      const results = await response.json();
+
+      if (results.length > 0) {
+        const { lat, lon, display_name } = results[0];
+        const newLat = parseFloat(lat);
+        const newLng = parseFloat(lon);
+        
+        setMarkerPos({ lat: newLat, lng: newLng });
+        onLocationChange(newLat, newLng);
+        
+        toast({
+          title: "Location found",
+          description: display_name,
+        });
+      } else {
+        toast({
+          title: "No results found",
+          description: "Please try different keywords",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Search failed",
+        description: "Unable to perform text search",
         variant: "destructive",
       });
     }
@@ -164,34 +204,93 @@ export default function MapInterface({
   return (
     <Card className={`overflow-hidden transition-all ${isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''}`} data-testid="card-map">
       <div className={`relative bg-muted ${isFullscreen ? 'h-screen' : 'h-[500px]'}`}>
-        {/* Search Bar */}
-        <div className="absolute top-4 left-4 z-10 flex gap-2 bg-card/95 backdrop-blur-sm p-2 rounded-lg shadow-lg">
-          <Input
-            type="text"
-            placeholder="Search location..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            className="w-64"
-            data-testid="input-search-location"
-          />
-          <Button
-            size="icon"
-            variant="secondary"
-            onClick={handleSearch}
-            data-testid="button-search"
-          >
-            <Search className="w-4 h-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="secondary"
-            onClick={getCurrentLocation}
-            data-testid="button-current-location"
-            title="Get current location"
-          >
-            <Navigation className="w-4 h-4" />
-          </Button>
+        {/* Map/Satellite Toggle & Search Bar */}
+        <div className="absolute top-4 left-4 z-10 bg-card/95 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden">
+          <Tabs value={mapLayer === 'streets' ? 'map' : 'satellite'} onValueChange={(v) => setMapLayer(v === 'map' ? 'streets' : 'satellite')} className="w-full">
+            <div className="flex border-b">
+              <TabsList className="bg-transparent border-0 rounded-none h-10">
+                <TabsTrigger 
+                  value="map" 
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-none px-6"
+                  data-testid="tab-map"
+                >
+                  Map
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="satellite" 
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-none px-6"
+                  data-testid="tab-satellite"
+                >
+                  Satellite
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            
+            {/* Search Tabs */}
+            <div className="p-2">
+              <Tabs value={searchType} onValueChange={(v) => setSearchType(v as 'place' | 'text')} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-2">
+                  <TabsTrigger value="place" data-testid="tab-place-search">Place Search</TabsTrigger>
+                  <TabsTrigger value="text" data-testid="tab-text-search">Text Search</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="place" className="mt-0">
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Search for a place or address"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handlePlaceSearch()}
+                      className="w-80"
+                      data-testid="input-place-search"
+                    />
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={handlePlaceSearch}
+                      data-testid="button-place-search"
+                    >
+                      <Search className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="text" className="mt-0">
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Enter address or coordinates"
+                      value={textSearchQuery}
+                      onChange={(e) => setTextSearchQuery(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleTextSearch()}
+                      className="w-80"
+                      data-testid="input-text-search"
+                    />
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={handleTextSearch}
+                      data-testid="button-text-search"
+                    >
+                      <Search className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
+              
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={getCurrentLocation}
+                data-testid="button-current-location"
+                className="w-full mt-2"
+              >
+                <Navigation className="w-4 h-4 mr-2" />
+                Get Current Location
+              </Button>
+            </div>
+          </Tabs>
         </div>
 
         <div
