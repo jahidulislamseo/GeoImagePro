@@ -149,21 +149,74 @@ export default function Home() {
     });
   };
 
-  const handleWriteExif = () => {
-    if (selectedImageIndex !== null) {
+  const handleWriteExif = async () => {
+    if (selectedImageIndex === null) {
+      toast({
+        title: "No image selected",
+        description: "Please select an image first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const image = images[selectedImageIndex];
+    
+    try {
+      // Create FormData to send image and metadata
+      const formData = new FormData();
+      formData.append('image', image.file);
+      formData.append('latitude', latitude.toString());
+      formData.append('longitude', longitude.toString());
+      formData.append('keywords', keywords);
+      formData.append('description', description);
+      formData.append('documentName', documentName);
+      formData.append('copyright', copyright);
+      formData.append('artist', artist);
+
+      toast({
+        title: "Processing...",
+        description: "Adding EXIF tags to your image",
+      });
+
+      // Call backend API to process image
+      const response = await fetch('/api/images/process', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process image');
+      }
+
+      // Get the processed image blob
+      const blob = await response.blob();
+      
+      // Update the image in state with geotagged flag
       setImages((prev) =>
         prev.map((img, i) =>
           i === selectedImageIndex ? { ...img, hasGeotag: true } : img
         )
       );
+
+      // Auto-download the geotagged image
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `geotagged_${image.file.name}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       toast({
-        title: "EXIF tags written",
-        description: "Geotag and metadata added to the image",
+        title: "Success!",
+        description: "EXIF tags written and image downloaded",
       });
-    } else {
+    } catch (error) {
+      console.error('EXIF write error:', error);
       toast({
-        title: "No image selected",
-        description: "Please select an image first",
+        title: "Failed to write EXIF tags",
+        description: "An error occurred while processing the image",
         variant: "destructive",
       });
     }

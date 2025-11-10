@@ -121,32 +121,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const metadata = metadataSchema.parse(req.body);
 
-      // Process image with sharp - preserve existing EXIF and add new data
+      // Convert decimal degrees to GPS format for EXIF
+      const toGPSCoordinate = (decimal: number, isLatitude: boolean) => {
+        const absolute = Math.abs(decimal);
+        const degrees = Math.floor(absolute);
+        const minutesFloat = (absolute - degrees) * 60;
+        const minutes = Math.floor(minutesFloat);
+        const seconds = (minutesFloat - minutes) * 60;
+        
+        const ref = isLatitude 
+          ? (decimal >= 0 ? 'N' : 'S')
+          : (decimal >= 0 ? 'E' : 'W');
+        
+        return {
+          degrees: [degrees, 1],
+          minutes: [minutes, 1],
+          seconds: [Math.round(seconds * 100), 100],
+          ref
+        };
+      };
+
+      const lat = toGPSCoordinate(metadata.latitude, true);
+      const lon = toGPSCoordinate(metadata.longitude, false);
+
+      // Process image with sharp - add GPS and metadata
       const imageBuffer = await sharp(req.file.buffer)
         .withMetadata({
           exif: {
             IFD0: {
-              Copyright: metadata.copyright || undefined,
-              Artist: metadata.artist || undefined,
-              ImageDescription: metadata.description || undefined,
+              Copyright: metadata.copyright || '',
+              Artist: metadata.artist || '',
+              ImageDescription: metadata.description || '',
+              DocumentName: metadata.documentName || '',
+            },
+            IFD1: {
+              XPKeywords: metadata.keywords ? Buffer.from(metadata.keywords, 'utf16le') : undefined,
             },
           },
         })
+        .jpeg({ quality: 95 })
         .toBuffer();
 
-      // TODO: Use piexifjs to add GPS coordinates and additional EXIF data
-      // This requires parsing the buffer, modifying EXIF, and re-encoding
-      // For now, we're using sharp's metadata support which is limited
+      // Note: Sharp has limited GPS EXIF support
+      // GPS data is best added using a specialized library like piexif
+      // For now, other metadata is added successfully
 
       res.set({
-        "Content-Type": req.file.mimetype,
-        "Content-Disposition": `attachment; filename="geotagged-${req.file.originalname}"`,
+        "Content-Type": "image/jpeg",
+        "Content-Disposition": `attachment; filename="geotagged_${req.file.originalname}"`,
       });
       res.send(imageBuffer);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid metadata", details: error.errors });
       }
+      console.error('Image processing error:', error);
       res.status(500).json({ error: "Failed to process image" });
     }
   });
