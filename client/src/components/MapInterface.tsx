@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Plus, Minus, Layers } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MapPin, Plus, Minus, Layers, Search, Maximize2, Minimize2, Navigation } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 
 interface MapInterfaceProps {
   latitude?: number;
@@ -25,6 +27,9 @@ export default function MapInterface({
   const [markerPos, setMarkerPos] = useState({ lat: latitude, lng: longitude });
   const [zoom, setZoom] = useState(13);
   const [mapLayer, setMapLayer] = useState<MapLayerType>('streets');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { toast } = useToast();
 
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -59,9 +64,113 @@ export default function MapInterface({
     terrain: '⛰️ Terrain',
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`
+      );
+      const results = await response.json();
+
+      if (results.length > 0) {
+        const { lat, lon, display_name } = results[0];
+        const newLat = parseFloat(lat);
+        const newLng = parseFloat(lon);
+        
+        setMarkerPos({ lat: newLat, lng: newLng });
+        onLocationChange(newLat, newLng);
+        
+        toast({
+          title: "Location found",
+          description: display_name,
+        });
+      } else {
+        toast({
+          title: "Location not found",
+          description: "Please try a different search term",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Search failed",
+        description: "Unable to search location",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Geolocation not supported",
+        description: "Your browser doesn't support geolocation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const newLat = position.coords.latitude;
+        const newLng = position.coords.longitude;
+        
+        setMarkerPos({ lat: newLat, lng: newLng });
+        onLocationChange(newLat, newLng);
+        
+        toast({
+          title: "Current location detected",
+          description: `${newLat.toFixed(4)}, ${newLng.toFixed(4)}`,
+        });
+      },
+      (error) => {
+        toast({
+          title: "Location access denied",
+          description: "Please enable location permissions",
+          variant: "destructive",
+        });
+      }
+    );
+  };
+
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
   return (
-    <Card className="overflow-hidden" data-testid="card-map">
-      <div className="relative h-[500px] bg-muted">
+    <Card className={`overflow-hidden transition-all ${isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''}`} data-testid="card-map">
+      <div className={`relative bg-muted ${isFullscreen ? 'h-screen' : 'h-[500px]'}`}>
+        {/* Search Bar */}
+        <div className="absolute top-4 left-4 z-10 flex gap-2 bg-card/95 backdrop-blur-sm p-2 rounded-lg shadow-lg">
+          <Input
+            type="text"
+            placeholder="Search location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            className="w-64"
+            data-testid="input-search-location"
+          />
+          <Button
+            size="icon"
+            variant="secondary"
+            onClick={handleSearch}
+            data-testid="button-search"
+          >
+            <Search className="w-4 h-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="secondary"
+            onClick={getCurrentLocation}
+            data-testid="button-current-location"
+            title="Get current location"
+          >
+            <Navigation className="w-4 h-4" />
+          </Button>
+        </div>
+
         <div
           className="w-full h-full cursor-crosshair relative"
           onClick={handleMapClick}
@@ -84,13 +193,14 @@ export default function MapInterface({
           </div>
         </div>
 
-        <div className="absolute top-4 right-4 flex flex-col gap-2">
+        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 size="icon"
                 variant="secondary"
                 data-testid="button-map-layers"
+                title="Map layers"
               >
                 <Layers className="w-4 h-4" />
               </Button>
@@ -111,8 +221,18 @@ export default function MapInterface({
           <Button
             size="icon"
             variant="secondary"
+            onClick={toggleFullscreen}
+            data-testid="button-fullscreen"
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </Button>
+          <Button
+            size="icon"
+            variant="secondary"
             onClick={() => setZoom(Math.min(zoom + 1, 18))}
             data-testid="button-zoom-in"
+            title="Zoom in"
           >
             <Plus className="w-4 h-4" />
           </Button>
@@ -121,14 +241,18 @@ export default function MapInterface({
             variant="secondary"
             onClick={() => setZoom(Math.max(zoom - 1, 1))}
             data-testid="button-zoom-out"
+            title="Zoom out"
           >
             <Minus className="w-4 h-4" />
           </Button>
         </div>
 
-        <div className="absolute bottom-4 left-4 bg-card px-3 py-2 rounded-md shadow-md">
+        <div className="absolute bottom-4 left-4 bg-card/95 backdrop-blur-sm px-3 py-2 rounded-md shadow-md z-10">
           <p className="text-xs font-mono" data-testid="text-map-coordinates">
-            {markerPos.lat.toFixed(6)}, {markerPos.lng.toFixed(6)}
+            📍 {markerPos.lat.toFixed(6)}, {markerPos.lng.toFixed(6)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            🔍 Zoom: {zoom}x • {layerLabels[mapLayer]}
           </p>
         </div>
       </div>
