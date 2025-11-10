@@ -6,21 +6,14 @@ import MapInterface from "@/components/MapInterface";
 import MetadataPanel from "@/components/MetadataPanel";
 import LocationSearch from "@/components/LocationSearch";
 import SearchHistory from "@/components/SearchHistory";
-import LocationTemplateManager from "@/components/LocationTemplateManager";
-import BatchControls from "@/components/BatchControls";
-import AdvancedExifEditor from "@/components/AdvancedExifEditor";
-import MapLayerSelector from "@/components/MapLayerSelector";
-import AIAssistant from "@/components/AIAssistant";
 import HowItWorks from "@/components/HowItWorks";
 import FAQ from "@/components/FAQ";
 import { useToast } from "@/hooks/use-toast";
-import type { LocationTemplate } from "@shared/schema";
 
 interface UploadedImage {
   file: File;
   preview: string;
   hasGeotag: boolean;
-  isSelected: boolean;
 }
 
 interface SearchHistoryItem {
@@ -30,39 +23,22 @@ interface SearchHistoryItem {
   timestamp: Date;
 }
 
-type MapLayer = "streets" | "satellite" | "terrain";
-
 export default function Home() {
   const { toast } = useToast();
-  
-  // Image state
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  
-  // Location state
   const [latitude, setLatitude] = useState(40.7128);
   const [longitude, setLongitude] = useState(-74.006);
-  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
-  const [mapLayer, setMapLayer] = useState<MapLayer>("streets");
-  
-  // Metadata state
   const [keywords, setKeywords] = useState("");
   const [description, setDescription] = useState("");
   const [documentName, setDocumentName] = useState("");
-  
-  // Advanced EXIF state
-  const [copyright, setCopyright] = useState("");
-  const [artist, setArtist] = useState("");
-  const [cameraModel, setCameraModel] = useState("");
-  const [cameraMake, setCameraMake] = useState("");
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
 
-  // Handlers
   const handleFilesSelected = (files: File[]) => {
     const newImages = files.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
       hasGeotag: false,
-      isSelected: false,
     }));
     setImages((prev) => [...prev, ...newImages]);
     toast({
@@ -78,38 +54,8 @@ export default function Home() {
     }
   };
 
-  const handleSelectImage = (index: number) => {
-    setSelectedImageIndex(index);
-    setImages((prev) =>
-      prev.map((img, i) => ({
-        ...img,
-        isSelected: i === index,
-      }))
-    );
-  };
-
-  const handleSelectAll = () => {
-    setImages((prev) => prev.map((img) => ({ ...img, isSelected: true })));
-  };
-
-  const handleDeselectAll = () => {
-    setImages((prev) => prev.map((img) => ({ ...img, isSelected: false })));
-  };
-
-  const handleApplyToSelected = () => {
-    const selectedCount = images.filter((img) => img.isSelected).length;
-    setImages((prev) =>
-      prev.map((img) =>
-        img.isSelected ? { ...img, hasGeotag: true } : img
-      )
-    );
-    toast({
-      title: "Batch processing complete",
-      description: `Applied geotag to ${selectedCount} image(s)`,
-    });
-  };
-
   const handleLocationSearch = (query: string) => {
+    // Mock search - in real app, this would call a geocoding API
     const mockLat = 40.7128 + (Math.random() - 0.5) * 10;
     const mockLng = -74.006 + (Math.random() - 0.5) * 10;
     
@@ -137,15 +83,6 @@ export default function Home() {
     toast({
       title: "Location selected",
       description: item.location,
-    });
-  };
-
-  const handleSelectTemplate = (template: LocationTemplate) => {
-    setLatitude(template.latitude);
-    setLongitude(template.longitude);
-    toast({
-      title: "Template applied",
-      description: template.name,
     });
   };
 
@@ -188,18 +125,11 @@ export default function Home() {
     setKeywords("");
     setDescription("");
     setDocumentName("");
-    setCopyright("");
-    setArtist("");
-    setCameraModel("");
-    setCameraMake("");
     toast({
       title: "Metadata cleared",
       description: "All metadata fields have been reset",
     });
   };
-
-  const selectedImage = selectedImageIndex !== null ? images[selectedImageIndex] : null;
-  const selectedCount = images.filter((img) => img.isSelected).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -211,46 +141,30 @@ export default function Home() {
             <UploadZone onFilesSelected={handleFilesSelected} />
 
             {images.length > 0 && (
-              <>
-                <BatchControls
-                  totalImages={images.length}
-                  selectedCount={selectedCount}
-                  onSelectAll={handleSelectAll}
-                  onDeselectAll={handleDeselectAll}
-                  onApplyToSelected={handleApplyToSelected}
-                />
-
-                <div>
-                  <h3 className="text-lg font-medium mb-4" data-testid="text-uploaded-images-title">
-                    Uploaded Images ({images.length})
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {images.map((image, index) => (
-                      <ImageThumbnail
-                        key={index}
-                        file={image.file}
-                        preview={image.preview}
-                        hasGeotag={image.hasGeotag}
-                        onRemove={() => handleRemoveImage(index)}
-                        onSelect={() => handleSelectImage(index)}
-                        isSelected={image.isSelected}
-                      />
-                    ))}
-                  </div>
+              <div>
+                <h3 className="text-lg font-medium mb-4" data-testid="text-uploaded-images-title">
+                  Uploaded Images ({images.length})
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {images.map((image, index) => (
+                    <ImageThumbnail
+                      key={index}
+                      file={image.file}
+                      preview={image.preview}
+                      hasGeotag={image.hasGeotag}
+                      onRemove={() => handleRemoveImage(index)}
+                      onSelect={() => setSelectedImageIndex(index)}
+                      isSelected={selectedImageIndex === index}
+                    />
+                  ))}
                 </div>
-              </>
+              </div>
             )}
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium" data-testid="text-map-title">
-                  Set Location
-                </h3>
-                <MapLayerSelector
-                  currentLayer={mapLayer}
-                  onLayerChange={setMapLayer}
-                />
-              </div>
+              <h3 className="text-lg font-medium" data-testid="text-map-title">
+                Set Location
+              </h3>
               <LocationSearch onSearch={handleLocationSearch} />
               <MapInterface
                 latitude={latitude}
@@ -262,12 +176,6 @@ export default function Home() {
               />
             </div>
 
-            <LocationTemplateManager
-              currentLat={latitude}
-              currentLng={longitude}
-              onSelectTemplate={handleSelectTemplate}
-            />
-
             {searchHistory.length > 0 && (
               <SearchHistory
                 history={searchHistory}
@@ -276,17 +184,7 @@ export default function Home() {
             )}
           </div>
 
-          <div className="space-y-6">
-            <AIAssistant
-              imageFile={selectedImage?.file}
-              onLocationDetected={(lat, lng) => {
-                setLatitude(lat);
-                setLongitude(lng);
-              }}
-              onKeywordsSuggested={setKeywords}
-              onDescriptionGenerated={setDescription}
-            />
-
+          <div>
             <MetadataPanel
               latitude={latitude}
               longitude={longitude}
@@ -301,17 +199,6 @@ export default function Home() {
               onWriteExif={handleWriteExif}
               onDownload={handleDownload}
               onClear={handleClear}
-            />
-
-            <AdvancedExifEditor
-              copyright={copyright}
-              artist={artist}
-              cameraModel={cameraModel}
-              cameraMake={cameraMake}
-              onCopyrightChange={setCopyright}
-              onArtistChange={setArtist}
-              onCameraModelChange={setCameraModel}
-              onCameraMakeChange={setCameraMake}
             />
           </div>
         </div>
