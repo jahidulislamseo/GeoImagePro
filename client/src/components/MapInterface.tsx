@@ -39,19 +39,31 @@ export default function MapInterface({
   useEffect(() => {
     const width = 800;
     const height = 500;
-    const baseUrl = 'https://api.mapbox.com/styles/v1/mapbox';
-    const token = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
     
-    const styleMap: Record<MapLayerType, string> = {
-      streets: 'streets-v12',
-      satellite: 'satellite-v9',
-      hybrid: 'satellite-streets-v12',
-      terrain: 'outdoors-v12',
+    const getStaticMapUrl = () => {
+      // Using different providers for each layer
+      if (mapLayer === 'streets') {
+        // OpenStreetMap static image via staticmap.openstreetmap.de
+        return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik`;
+      } else if (mapLayer === 'satellite') {
+        // ESRI World Imagery
+        const z = zoom;
+        const x = Math.floor((longitude + 180) / 360 * Math.pow(2, z));
+        const y = Math.floor((1 - Math.log(Math.tan(latitude * Math.PI / 180) + 1 / Math.cos(latitude * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+        return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+      } else if (mapLayer === 'hybrid') {
+        // ESRI World Imagery with labels
+        const z = zoom;
+        const x = Math.floor((longitude + 180) / 360 * Math.pow(2, z));
+        const y = Math.floor((1 - Math.log(Math.tan(latitude * Math.PI / 180) + 1 / Math.cos(latitude * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+        return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+      } else {
+        // Terrain - OpenTopoMap
+        return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik`;
+      }
     };
     
-    const style = styleMap[mapLayer];
-    const url = `${baseUrl}/${style}/static/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${token}`;
-    
+    const url = getStaticMapUrl();
     setMapUrl(url);
   }, [latitude, longitude, zoom, mapLayer]);
 
