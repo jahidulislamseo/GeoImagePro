@@ -12,11 +12,19 @@ interface MetadataPanelProps {
   keywords: string;
   description: string;
   documentName: string;
+  imageTitle: string;
+  caption: string;
+  locationName: string;
+  subject: string;
   onLatitudeChange: (value: number) => void;
   onLongitudeChange: (value: number) => void;
   onKeywordsChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onDocumentNameChange: (value: string) => void;
+  onImageTitleChange: (value: string) => void;
+  onCaptionChange: (value: string) => void;
+  onLocationNameChange: (value: string) => void;
+  onSubjectChange: (value: string) => void;
   onWriteExif: () => void;
   onDownload: () => void;
   onClear: () => void;
@@ -28,11 +36,19 @@ export default function MetadataPanel({
   keywords,
   description,
   documentName,
+  imageTitle,
+  caption,
+  locationName,
+  subject,
   onLatitudeChange,
   onLongitudeChange,
   onKeywordsChange,
   onDescriptionChange,
   onDocumentNameChange,
+  onImageTitleChange,
+  onCaptionChange,
+  onLocationNameChange,
+  onSubjectChange,
   onWriteExif,
   onDownload,
   onClear,
@@ -107,6 +123,69 @@ export default function MetadataPanel({
           <p className="text-xs text-muted-foreground text-right" data-testid="text-description-count">
             {description.length} / 1,300
           </p>
+        </div>
+
+        {/* SEO Metadata Fields */}
+        <div className="space-y-4 pt-4 border-t">
+          <Label className="text-sm font-medium text-primary">
+            🔍 SEO Metadata
+          </Label>
+          
+          <div className="space-y-2">
+            <Label htmlFor="image-title" data-testid="label-image-title">
+              Image Title
+              <span className="text-xs text-muted-foreground ml-2">SEO Important</span>
+            </Label>
+            <Input
+              id="image-title"
+              value={imageTitle}
+              onChange={(e) => onImageTitleChange(e.target.value)}
+              placeholder="Beautiful sunset at Cox's Bazar beach"
+              data-testid="input-image-title"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="caption" data-testid="label-caption">
+              Caption
+              <span className="text-xs text-muted-foreground ml-2">Short description</span>
+            </Label>
+            <Input
+              id="caption"
+              value={caption}
+              onChange={(e) => onCaptionChange(e.target.value)}
+              placeholder="Golden hour at the longest sea beach"
+              data-testid="input-caption"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="location-name" data-testid="label-location-name">
+              Location Name
+              <span className="text-xs text-muted-foreground ml-2">Human-readable</span>
+            </Label>
+            <Input
+              id="location-name"
+              value={locationName}
+              onChange={(e) => onLocationNameChange(e.target.value)}
+              placeholder="Cox's Bazar, Chittagong, Bangladesh"
+              data-testid="input-location-name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="subject" data-testid="label-subject">
+              Subject / Category
+              <span className="text-xs text-muted-foreground ml-2">Image type</span>
+            </Label>
+            <Input
+              id="subject"
+              value={subject}
+              onChange={(e) => onSubjectChange(e.target.value)}
+              placeholder="Landscape, Nature, Travel"
+              data-testid="input-subject"
+            />
+          </div>
         </div>
 
         <div className="space-y-3 pt-4 border-t">

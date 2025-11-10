@@ -12,6 +12,9 @@ declare module 'piexifjs' {
     ImageDescription: number;
     DocumentName: number;
     XPKeywords: number;
+    XPTitle: number;
+    XPComment: number;
+    XPSubject: number;
   }
 
   export interface ExifIFD {

@@ -50,6 +50,12 @@ export default function Home() {
   const [description, setDescription] = useState("");
   const [documentName, setDocumentName] = useState("");
   
+  // SEO metadata state (initialized with empty strings for controlled inputs)
+  const [imageTitle, setImageTitle] = useState<string>("");
+  const [caption, setCaption] = useState<string>("");
+  const [locationName, setLocationName] = useState<string>("");
+  const [subject, setSubject] = useState<string>("");
+  
   // Advanced EXIF state
   const [copyright, setCopyright] = useState("");
   const [artist, setArtist] = useState("");
@@ -170,6 +176,10 @@ export default function Home() {
       formData.append('keywords', keywords);
       formData.append('description', description);
       formData.append('documentName', documentName);
+      formData.append('imageTitle', imageTitle);
+      formData.append('caption', caption);
+      formData.append('locationName', locationName);
+      formData.append('subject', subject);
       formData.append('copyright', copyright);
       formData.append('artist', artist);
 
@@ -365,11 +375,19 @@ export default function Home() {
               keywords={keywords}
               description={description}
               documentName={documentName}
+              imageTitle={imageTitle}
+              caption={caption}
+              locationName={locationName}
+              subject={subject}
               onLatitudeChange={setLatitude}
               onLongitudeChange={setLongitude}
               onKeywordsChange={setKeywords}
               onDescriptionChange={setDescription}
               onDocumentNameChange={setDocumentName}
+              onImageTitleChange={setImageTitle}
+              onCaptionChange={setCaption}
+              onLocationNameChange={setLocationName}
+              onSubjectChange={setSubject}
               onWriteExif={handleWriteExif}
               onDownload={handleDownload}
               onClear={handleClear}

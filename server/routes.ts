@@ -116,6 +116,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         keywords: z.string().optional(),
         description: z.string().optional(),
         documentName: z.string().optional(),
+        imageTitle: z.string().optional(),
+        caption: z.string().optional(),
+        locationName: z.string().optional(),
+        subject: z.string().optional(),
         copyright: z.string().optional(),
         artist: z.string().optional(),
       });
@@ -187,9 +191,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         exifObj["0th"][piexif.ImageIFD.DocumentName] = metadata.documentName;
       }
       
+      // Add SEO metadata fields
+      if (metadata.imageTitle) {
+        exifObj["0th"][piexif.ImageIFD.XPTitle] = metadata.imageTitle;
+      }
+      if (metadata.caption) {
+        exifObj["0th"][piexif.ImageIFD.XPComment] = metadata.caption;
+      }
+      if (metadata.subject) {
+        exifObj["0th"][piexif.ImageIFD.XPSubject] = metadata.subject;
+      }
+      
       // Add keywords to Exif UserComment (more reliable than XPKeywords)
       if (metadata.keywords) {
         exifObj.Exif[piexif.ExifIFD.UserComment] = metadata.keywords;
+      }
+      
+      // Add location name to Exif (using MakerNote for custom data)
+      if (metadata.locationName) {
+        exifObj.Exif[piexif.ExifIFD.UserComment] = metadata.locationName + (metadata.keywords ? ' | ' + metadata.keywords : '');
       }
 
       // Convert EXIF object to bytes
