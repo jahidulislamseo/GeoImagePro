@@ -29,13 +29,31 @@ export default function MapInterface({
   const [mapLayer, setMapLayer] = useState<MapLayerType>('streets');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mapKey, setMapKey] = useState(0);
+  const [mapUrl, setMapUrl] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
     setMarkerPos({ lat: latitude, lng: longitude });
-    setMapKey(prev => prev + 1);
   }, [latitude, longitude]);
+
+  useEffect(() => {
+    const width = 800;
+    const height = 500;
+    const baseUrl = 'https://api.mapbox.com/styles/v1/mapbox';
+    const token = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+    
+    const styleMap: Record<MapLayerType, string> = {
+      streets: 'streets-v12',
+      satellite: 'satellite-v9',
+      hybrid: 'satellite-streets-v12',
+      terrain: 'outdoors-v12',
+    };
+    
+    const style = styleMap[mapLayer];
+    const url = `${baseUrl}/${style}/static/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${token}`;
+    
+    setMapUrl(url);
+  }, [latitude, longitude, zoom, mapLayer]);
 
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -49,24 +67,6 @@ export default function MapInterface({
     onLocationChange(lat, lng);
   };
 
-  const getMapUrl = () => {
-    const width = 800;
-    const height = 500;
-    
-    const baseUrl = 'https://api.mapbox.com/styles/v1/mapbox';
-    const token = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
-    
-    const styleMap: Record<MapLayerType, string> = {
-      streets: 'streets-v12',
-      satellite: 'satellite-v9',
-      hybrid: 'satellite-streets-v12',
-      terrain: 'outdoors-v12',
-    };
-    
-    const style = styleMap[mapLayer];
-    
-    return `${baseUrl}/${style}/static/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${token}&t=${Date.now()}`;
-  };
 
   const layerLabels: Record<MapLayerType, string> = {
     streets: '🗺️ Streets',
@@ -183,12 +183,11 @@ export default function MapInterface({
         </div>
 
         <div
-          key={mapKey}
           className="w-full h-full cursor-crosshair relative"
           onClick={handleMapClick}
           data-testid="div-map-container"
           style={{
-            backgroundImage: `url('${getMapUrl()}')`,
+            backgroundImage: mapUrl ? `url(${mapUrl})` : 'none',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
