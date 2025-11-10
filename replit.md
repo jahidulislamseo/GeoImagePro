@@ -167,33 +167,34 @@ GeoTag Pro is a **professional photo geotagging web application** built with **R
 
 ```
 GeoTag Pro/
-├── app.py                          # Flask backend (MAIN SERVER)
-│   ├── Image processing routes
-│   ├── Location template CRUD
-│   ├── AI proxy endpoint (NEW)
-│   └── Database initialization
+├── client/                         # React/TypeScript Frontend
+│   ├── src/
+│   │   ├── components/            # React components
+│   │   │   ├── ui/               # Shadcn UI components (17 used)
+│   │   │   ├── Header.tsx
+│   │   │   ├── UploadZone.tsx
+│   │   │   ├── MapInterface.tsx
+│   │   │   ├── MetadataPanel.tsx
+│   │   │   ├── AIAssistant.tsx
+│   │   │   └── ... (other components)
+│   │   ├── pages/
+│   │   │   └── Home.tsx          # Main application page
+│   │   └── lib/                  # Utilities
 │
-├── templates/
-│   └── index.html                  # Main HTML interface
+├── server/                        # Node.js/Express Backend
+│   ├── index.ts                  # Server entry point
+│   ├── routes.ts                 # API endpoints
+│   ├── storage.ts                # Database interface
+│   ├── vite.ts                   # Vite integration
+│   └── piexifjs.d.ts            # EXIF type definitions
 │
-├── static/
-│   ├── css/
-│   │   └── style.css               # Complete styling (800+ lines)
-│   │       ├── Dark mode variables
-│   │       ├── Modal styles
-│   │       ├── Animations
-│   │       └── Responsive design
-│   │
-│   └── js/
-│       ├── app.js                  # Core application logic
-│       ├── features.js             # Advanced features (NEW)
-│       ├── i18n.js                 # Language support (NEW)
-│       ├── ai-features.js          # AI integration (NEW)
-│       └── gpx-import.js           # GPX import (NEW)
+├── shared/                        # Shared TypeScript types
+│   └── schema.ts                 # Database schema (Drizzle ORM)
 │
-├── README_FEATURES.md              # Feature documentation
-├── SETUP_GUIDE.md                  # Setup instructions
-└── replit.md                       # This file
+├── package.json                   # Dependencies
+├── vite.config.ts                # Vite configuration
+├── tailwind.config.ts            # Tailwind CSS config
+└── replit.md                     # This file
 ```
 
 ## API Endpoints
@@ -375,12 +376,21 @@ Then visit: http://localhost:5000
 - Backend AI proxy for security
 - Complete documentation
 
+## Cleanup History
+
+**November 10, 2024 - Code Cleanup:**
+- ✅ Removed old Python Flask implementation (app.py, static/, templates/)
+- ✅ Removed 30 unused shadcn UI components (kept only 17 used)
+- ✅ Removed unused ImageEditor component
+- ✅ Removed examples directory (10 demo files)
+- ✅ Removed redundant documentation files
+- ✅ Project size reduced, cleaner codebase
+
 ## Notes
 
-- **Stack Choice**: Python Flask chosen per user's explicit request
-- **No Frameworks**: Vanilla JavaScript, no React/Vue/Angular
+- **Stack**: React/TypeScript + Node.js/Express
 - **Database**: PostgreSQL configured and ready
-- **AI**: Optional feature, requires user-provided API key
+- **AI**: Optional features with mock implementations
 - **Images**: Processed in-memory, never stored permanently
 - **Privacy**: No user accounts, no tracking, no data collection
 
