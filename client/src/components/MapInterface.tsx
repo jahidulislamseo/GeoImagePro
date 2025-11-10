@@ -1,13 +1,21 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Plus, Minus } from "lucide-react";
+import { MapPin, Plus, Minus, Layers } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface MapInterfaceProps {
   latitude?: number;
   longitude?: number;
   onLocationChange: (lat: number, lng: number) => void;
 }
+
+type MapLayerType = 'streets' | 'satellite' | 'hybrid' | 'terrain';
 
 export default function MapInterface({
   latitude = 40.7128,
@@ -16,6 +24,7 @@ export default function MapInterface({
 }: MapInterfaceProps) {
   const [markerPos, setMarkerPos] = useState({ lat: latitude, lng: longitude });
   const [zoom, setZoom] = useState(13);
+  const [mapLayer, setMapLayer] = useState<MapLayerType>('streets');
 
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -29,6 +38,27 @@ export default function MapInterface({
     onLocationChange(lat, lng);
   };
 
+  const getMapUrl = () => {
+    const baseUrl = 'https://api.mapbox.com/styles/v1/mapbox';
+    const token = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+    
+    const styleMap: Record<MapLayerType, string> = {
+      streets: `${baseUrl}/streets-v12/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=${token}`,
+      satellite: `${baseUrl}/satellite-v9/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=${token}`,
+      hybrid: `${baseUrl}/satellite-streets-v12/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=${token}`,
+      terrain: `${baseUrl}/outdoors-v12/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=${token}`,
+    };
+    
+    return styleMap[mapLayer];
+  };
+
+  const layerLabels: Record<MapLayerType, string> = {
+    streets: '🗺️ Streets',
+    satellite: '🛰️ Satellite',
+    hybrid: '🌍 Hybrid',
+    terrain: '⛰️ Terrain',
+  };
+
   return (
     <Card className="overflow-hidden" data-testid="card-map">
       <div className="relative h-[500px] bg-muted">
@@ -37,7 +67,7 @@ export default function MapInterface({
           onClick={handleMapClick}
           data-testid="div-map-container"
           style={{
-            backgroundImage: `url('https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw')`,
+            backgroundImage: `url('${getMapUrl()}')`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
@@ -55,6 +85,29 @@ export default function MapInterface({
         </div>
 
         <div className="absolute top-4 right-4 flex flex-col gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="secondary"
+                data-testid="button-map-layers"
+              >
+                <Layers className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(Object.keys(layerLabels) as MapLayerType[]).map((layer) => (
+                <DropdownMenuItem
+                  key={layer}
+                  onClick={() => setMapLayer(layer)}
+                  className={mapLayer === layer ? 'bg-accent' : ''}
+                  data-testid={`menu-item-${layer}`}
+                >
+                  {layerLabels[layer]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             size="icon"
             variant="secondary"
