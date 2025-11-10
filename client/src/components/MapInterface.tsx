@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,13 @@ export default function MapInterface({
   const [mapLayer, setMapLayer] = useState<MapLayerType>('streets');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapKey, setMapKey] = useState(0);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setMarkerPos({ lat: latitude, lng: longitude });
+    setMapKey(prev => prev + 1);
+  }, [latitude, longitude]);
 
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -44,17 +50,38 @@ export default function MapInterface({
   };
 
   const getMapUrl = () => {
-    const baseUrl = 'https://api.mapbox.com/styles/v1/mapbox';
-    const token = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+    const width = 800;
+    const height = 500;
     
     const styleMap: Record<MapLayerType, string> = {
-      streets: `${baseUrl}/streets-v12/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=${token}`,
-      satellite: `${baseUrl}/satellite-v9/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=${token}`,
-      hybrid: `${baseUrl}/satellite-streets-v12/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=${token}`,
-      terrain: `${baseUrl}/outdoors-v12/static/${longitude},${latitude},${zoom},0/800x500@2x?access_token=${token}`,
+      streets: `https://tile.openstreetmap.org/${zoom}/${getLngTile(longitude, zoom)}/${getLatTile(latitude, zoom)}.png`,
+      satellite: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${getLatTile(latitude, zoom)}/${getLngTile(longitude, zoom)}`,
+      hybrid: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${getLatTile(latitude, zoom)}/${getLngTile(longitude, zoom)}`,
+      terrain: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${zoom}/${getLatTile(latitude, zoom)}/${getLngTile(longitude, zoom)}`,
     };
     
-    return styleMap[mapLayer];
+    return `https://api.mapbox.com/styles/v1/mapbox/${getMapboxStyle()}/static/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw`;
+  };
+
+  const getMapboxStyle = () => {
+    const styles: Record<MapLayerType, string> = {
+      streets: 'streets-v12',
+      satellite: 'satellite-v9',
+      hybrid: 'satellite-streets-v12',
+      terrain: 'outdoors-v12',
+    };
+    return styles[mapLayer];
+  };
+
+  const getLngTile = (lng: number, zoom: number) => {
+    return Math.floor(((lng + 180) / 360) * Math.pow(2, zoom));
+  };
+
+  const getLatTile = (lat: number, zoom: number) => {
+    return Math.floor(
+      ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
+        Math.pow(2, zoom)
+    );
   };
 
   const layerLabels: Record<MapLayerType, string> = {
@@ -172,6 +199,7 @@ export default function MapInterface({
         </div>
 
         <div
+          key={mapKey}
           className="w-full h-full cursor-crosshair relative"
           onClick={handleMapClick}
           data-testid="div-map-container"
@@ -179,6 +207,7 @@ export default function MapInterface({
             backgroundImage: `url('${getMapUrl()}')`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
           }}
         >
           <div
