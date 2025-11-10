@@ -13,6 +13,7 @@ import MapLayerSelector from "@/components/MapLayerSelector";
 import AIAssistant from "@/components/AIAssistant";
 import HowItWorks from "@/components/HowItWorks";
 import FAQ from "@/components/FAQ";
+import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { LocationTemplate } from "@shared/schema";
 
@@ -64,13 +65,21 @@ export default function Home() {
 
   // Handlers
   const handleFilesSelected = (files: File[]) => {
-    const newImages = files.map((file) => ({
+    const newImages = files.map((file, index) => ({
       file,
       preview: URL.createObjectURL(file),
       hasGeotag: false,
-      isSelected: false,
+      // Auto-select and highlight the first image if none is currently selected
+      isSelected: selectedImageIndex === null && images.length === 0 && index === 0,
     }));
-    setImages((prev) => [...prev, ...newImages]);
+    const updatedImages = [...images, ...newImages];
+    setImages(updatedImages);
+    
+    // Auto-select the first image if none is selected
+    if (selectedImageIndex === null && updatedImages.length > 0) {
+      setSelectedImageIndex(0);
+    }
+    
     toast({
       title: "Images uploaded",
       description: `${files.length} image(s) added successfully`,
@@ -359,50 +368,71 @@ export default function Home() {
           </div>
 
           <div className="space-y-6">
-            <AIAssistant
-              imageFile={selectedImage?.file}
-              onLocationDetected={(lat, lng) => {
-                setLatitude(lat);
-                setLongitude(lng);
-              }}
-              onKeywordsSuggested={setKeywords}
-              onDescriptionGenerated={setDescription}
-            />
+            {selectedImage ? (
+              <>
+                <AIAssistant
+                  imageFile={selectedImage?.file}
+                  onLocationDetected={(lat, lng) => {
+                    setLatitude(lat);
+                    setLongitude(lng);
+                  }}
+                  onKeywordsSuggested={setKeywords}
+                  onDescriptionGenerated={setDescription}
+                />
 
-            <MetadataPanel
-              latitude={latitude}
-              longitude={longitude}
-              keywords={keywords}
-              description={description}
-              documentName={documentName}
-              imageTitle={imageTitle}
-              caption={caption}
-              locationName={locationName}
-              subject={subject}
-              onLatitudeChange={setLatitude}
-              onLongitudeChange={setLongitude}
-              onKeywordsChange={setKeywords}
-              onDescriptionChange={setDescription}
-              onDocumentNameChange={setDocumentName}
-              onImageTitleChange={setImageTitle}
-              onCaptionChange={setCaption}
-              onLocationNameChange={setLocationName}
-              onSubjectChange={setSubject}
-              onWriteExif={handleWriteExif}
-              onDownload={handleDownload}
-              onClear={handleClear}
-            />
+                <MetadataPanel
+                  latitude={latitude}
+                  longitude={longitude}
+                  keywords={keywords}
+                  description={description}
+                  documentName={documentName}
+                  imageTitle={imageTitle}
+                  caption={caption}
+                  locationName={locationName}
+                  subject={subject}
+                  onLatitudeChange={setLatitude}
+                  onLongitudeChange={setLongitude}
+                  onKeywordsChange={setKeywords}
+                  onDescriptionChange={setDescription}
+                  onDocumentNameChange={setDocumentName}
+                  onImageTitleChange={setImageTitle}
+                  onCaptionChange={setCaption}
+                  onLocationNameChange={setLocationName}
+                  onSubjectChange={setSubject}
+                  onWriteExif={handleWriteExif}
+                  onDownload={handleDownload}
+                  onClear={handleClear}
+                />
 
-            <AdvancedExifEditor
-              copyright={copyright}
-              artist={artist}
-              cameraModel={cameraModel}
-              cameraMake={cameraMake}
-              onCopyrightChange={setCopyright}
-              onArtistChange={setArtist}
-              onCameraModelChange={setCameraModel}
-              onCameraMakeChange={setCameraMake}
-            />
+                <AdvancedExifEditor
+                  copyright={copyright}
+                  artist={artist}
+                  cameraModel={cameraModel}
+                  cameraMake={cameraMake}
+                  onCopyrightChange={setCopyright}
+                  onArtistChange={setArtist}
+                  onCameraModelChange={setCameraModel}
+                  onCameraMakeChange={setCameraMake}
+                />
+              </>
+            ) : (
+              <Card className="p-8 text-center bg-muted/30" data-testid="card-upload-reminder">
+                <div className="space-y-4">
+                  <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Upload an Image to Start</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Drag and drop a photo above or click to browse.<br />
+                      Metadata editing options will appear here once you upload an image.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       </main>

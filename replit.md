@@ -13,6 +13,10 @@ GeoTag Pro is a **professional photo geotagging web application** built with **R
 - ✅ Auto-download with geotagged files
 - ✅ Real-time coordinate updates
 - ✅ Responsive UI with Shadcn components
+- ✅ **4 SEO Metadata Fields** (Image Title, Caption, Location Name, Subject) ⭐ NEW
+- ✅ **Conditional UI** - Options appear only after image upload ⭐ NEW
+- ✅ **Auto-select** - First image automatically selected on upload ⭐ NEW
+- ✅ **Map Placeholder** - Beautiful empty state with instructions ⭐ NEW
 
 ## Tech Stack
 
@@ -74,12 +78,18 @@ GeoTag Pro is a **professional photo geotagging web application** built with **R
 
 ### 5. ✅ Metadata Editor
 - **GPS Coordinates** (Latitude/Longitude)
+- **🆕 Image Title** (EXIF XPTitle - 90% SEO impact) ⭐
+- **🆕 Caption** (EXIF XPComment - 75% SEO impact) ⭐
+- **🆕 Location Name** (Human-readable, 85% SEO impact) ⭐
+- **🆕 Subject/Category** (EXIF XPSubject - 70% SEO impact) ⭐
 - **Keywords & Tags** (Max 6,600 chars)
 - **Description/Alt Text** (Max 1,300 chars)
 - **Artist/Photographer** name
 - **Copyright** information
 - **Document Name** (EXIF field)
-- **File**: `client/src/components/MetadataPanel.tsx`
+- **Conditional Display**: Panels only appear after image upload
+- **Auto-select**: First uploaded image automatically selected
+- **File**: `client/src/components/MetadataPanel.tsx`, `client/src/pages/Home.tsx`
 
 ### 6. ✅ Batch Processing & Export
 - **Select All** checkbox
@@ -340,7 +350,20 @@ Then visit: http://localhost:5000
 
 ## Recent Changes (Latest Session)
 
-✅ Added all advanced features (Nov 10, 2024):
+✅ **SEO & UX Improvements** (Nov 10, 2024 - Evening):
+- 🆕 Added 4 critical SEO metadata fields:
+  - Image Title (XPTitle EXIF tag)
+  - Caption (XPComment EXIF tag)
+  - Location Name (UserComment)
+  - Subject/Category (XPSubject EXIF tag)
+- 🆕 Conditional UI rendering - metadata panels only show after upload
+- 🆕 Auto-select first image on upload for instant editing
+- 🆕 Thumbnail highlight sync with selection
+- 🆕 Map placeholder with gradient background and instructions
+- 🆕 Upload reminder card when no images selected
+- ✅ TypeScript definitions for XP EXIF tags (server/piexifjs.d.ts)
+
+✅ Previous advanced features (Nov 10, 2024 - Earlier):
 - Image preview modal with rotation
 - Keyboard shortcuts system
 - Bengali/English i18n
