@@ -219,6 +219,76 @@ def lng_to_dms(lng):
     seconds = int((lng - degrees - minutes / 60) * 3600 * 100)
     return ((degrees, 1), (minutes, 1), (seconds, 100))
 
+@app.route('/api/ai/analyze-image', methods=['POST'])
+def ai_analyze_image():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image provided'}), 400
+    
+    file = request.files['image']
+    prompt_type = request.form.get('prompt_type', 'location')
+    api_key = request.form.get('api_key')
+    
+    if not api_key:
+        return jsonify({'error': 'API key required'}), 400
+    
+    try:
+        import base64
+        import requests
+        
+        image_bytes = file.read()
+        base64_image = base64.b64encode(image_bytes).decode('utf-8')
+        
+        prompts = {
+            'location': '''Analyze this image and determine the most likely geographic location where it was taken. 
+Consider landmarks, architecture, vegetation, signs, and any other visual clues. 
+Provide your best estimate of the latitude and longitude coordinates.
+Respond ONLY with JSON in this exact format: {"latitude": 40.7128, "longitude": -74.0060, "confidence": 0.85, "location_name": "New York City"}''',
+            
+            'keywords': '''Analyze this image and generate relevant keywords for photo metadata. 
+Include: subject, setting, mood, colors, composition style, and any notable features.
+Provide 10-15 descriptive keywords separated by commas.
+Respond ONLY with the keywords, no other text.''',
+            
+            'description': '''Create a detailed, professional description of this photograph suitable for image metadata. 
+Include: main subject, composition, lighting, mood, and any notable features.
+Write in a clear, descriptive style. Keep it under 200 words.
+Respond ONLY with the description, no other text.'''
+        }
+        
+        prompt = prompts.get(prompt_type, prompts['location'])
+        
+        response = requests.post(
+            f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}',
+            json={
+                'contents': [{
+                    'parts': [
+                        {'text': prompt},
+                        {
+                            'inline_data': {
+                                'mime_type': 'image/jpeg',
+                                'data': base64_image
+                            }
+                        }
+                    ]
+                }]
+            }
+        )
+        
+        if response.status_code != 200:
+            return jsonify({'error': 'AI API request failed'}), 500
+        
+        data = response.json()
+        text = data['candidates'][0]['content']['parts'][0]['text']
+        
+        try:
+            result = json.loads(text)
+            return jsonify(result)
+        except:
+            return jsonify({'result': text.strip()})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
