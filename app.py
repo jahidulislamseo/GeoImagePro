@@ -219,6 +219,11 @@ def lng_to_dms(lng):
     seconds = int((lng - degrees - minutes / 60) * 3600 * 100)
     return ((degrees, 1), (minutes, 1), (seconds, 100))
 
+@app.route('/api/ai/check-key', methods=['GET'])
+def check_ai_key():
+    api_key = os.environ.get('GEMINI_API_KEY')
+    return jsonify({'configured': bool(api_key)})
+
 @app.route('/api/ai/analyze-image', methods=['POST'])
 def ai_analyze_image():
     if 'image' not in request.files:
@@ -226,10 +231,12 @@ def ai_analyze_image():
     
     file = request.files['image']
     prompt_type = request.form.get('prompt_type', 'location')
-    api_key = request.form.get('api_key')
+    
+    # Get API key from environment or request
+    api_key = os.environ.get('GEMINI_API_KEY') or request.form.get('api_key')
     
     if not api_key:
-        return jsonify({'error': 'API key required'}), 400
+        return jsonify({'error': 'API key not configured'}), 400
     
     try:
         import base64
@@ -290,5 +297,9 @@ Respond ONLY with the description, no other text.'''
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
+    # Set Gemini API key if provided
+    if not os.environ.get('GEMINI_API_KEY'):
+        os.environ['GEMINI_API_KEY'] = 'AIzaSyBk5Fq8eT7AWCA65rF8ExLmNLTAis-EM3A'
+    
     init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)

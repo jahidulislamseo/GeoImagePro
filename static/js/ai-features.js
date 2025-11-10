@@ -8,9 +8,19 @@ const AI_CONFIG = {
 
 // AI API Key Management
 function showAISetup() {
-    const currentKey = AI_CONFIG.apiKey ? '***' + AI_CONFIG.apiKey.slice(-4) : 'Not set';
-    
-    const message = `
+    // Check if backend has API key configured
+    fetch('/api/ai/check-key')
+        .then(r => r.json())
+        .then(data => {
+            if (data.configured) {
+                showToast('✅ AI features are already configured!');
+                enableAIFeatures();
+                return;
+            }
+            
+            const currentKey = AI_CONFIG.apiKey ? '***' + AI_CONFIG.apiKey.slice(-4) : 'Not set';
+            
+            const message = `
 AI Features Setup
 
 Current API Key: ${currentKey}
@@ -19,16 +29,28 @@ To enable AI features, you need a Google Gemini API key.
 Get your free API key from: https://makersuite.google.com/app/apikey
 
 Enter your API key below:
-    `.trim();
-    
-    const apiKey = prompt(message, '');
-    
-    if (apiKey) {
-        AI_CONFIG.apiKey = apiKey;
-        localStorage.setItem('ai_api_key', apiKey);
-        showToast('AI API key saved successfully');
-        enableAIFeatures();
-    }
+            `.trim();
+            
+            const apiKey = prompt(message, '');
+            
+            if (apiKey) {
+                AI_CONFIG.apiKey = apiKey;
+                localStorage.setItem('ai_api_key', apiKey);
+                showToast('AI API key saved successfully');
+                enableAIFeatures();
+            }
+        })
+        .catch(() => {
+            // Fallback to manual setup
+            const currentKey = AI_CONFIG.apiKey ? '***' + AI_CONFIG.apiKey.slice(-4) : 'Not set';
+            const apiKey = prompt('Enter your Gemini API key:', '');
+            if (apiKey) {
+                AI_CONFIG.apiKey = apiKey;
+                localStorage.setItem('ai_api_key', apiKey);
+                showToast('AI API key saved successfully');
+                enableAIFeatures();
+            }
+        });
 }
 
 function enableAIFeatures() {
@@ -217,42 +239,42 @@ function fileToBase64(file) {
     });
 }
 
-// API Call: Google Gemini Vision
+// API Call: Google Gemini Vision (via backend proxy)
 async function callGeminiVision(base64Image, prompt) {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_CONFIG.model}:generateContent?key=${AI_CONFIG.apiKey}`, {
+    // Use backend proxy for security
+    const selectedImage = getSelectedImage();
+    if (!selectedImage) return null;
+    
+    const formData = new FormData();
+    formData.append('image', selectedImage.file);
+    
+    // Determine prompt type
+    let promptType = 'location';
+    if (prompt.includes('keywords')) {
+        promptType = 'keywords';
+    } else if (prompt.includes('description')) {
+        promptType = 'description';
+    }
+    
+    formData.append('prompt_type', promptType);
+    
+    // Add API key if available
+    if (AI_CONFIG.apiKey) {
+        formData.append('api_key', AI_CONFIG.apiKey);
+    }
+    
+    const response = await fetch('/api/ai/analyze-image', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            contents: [{
-                parts: [
-                    { text: prompt },
-                    {
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: base64Image
-                        }
-                    }
-                ]
-            }]
-        })
+        body: formData
     });
     
     if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error?.message || 'API request failed');
+        throw new Error(error.error || 'AI request failed');
     }
     
     const data = await response.json();
-    const text = data.candidates[0].content.parts[0].text;
-    
-    // Try to parse JSON response
-    try {
-        return JSON.parse(text);
-    } catch {
-        return text;
-    }
+    return data.result || data;
 }
 
 // Initialize AI features on page load
