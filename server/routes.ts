@@ -227,15 +227,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add SEO metadata fields (using standard EXIF fields instead of XP fields)
       // XP fields require UTF-16 encoding which causes issues, so we use standard fields
 
-      // Add keywords to Exif UserComment (more reliable than XPKeywords)
-      if (metadata.keywords) {
-        exifObj.Exif[piexif.ExifIFD.UserComment] = metadata.keywords;
-      }
-
-      // Add location name to Exif (using MakerNote for custom data)
-      if (metadata.locationName) {
-        exifObj.Exif[piexif.ExifIFD.UserComment] = metadata.locationName + (metadata.keywords ? ' | ' + metadata.keywords : '');
-      }
+      // Note: Keywords and location name are stored in standard fields above
+      // UserComment requires special encoding, so we skip it
 
       // Generate EXIF buffer
       const exifBytes = piexif.dump(exifObj as any);
@@ -247,11 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Handle different formats
       if (fileMetadata.format === 'jpeg' || fileMetadata.format === 'jpg') {
-        // For JPEG, we can use piexifjs directly to insert into the binary string, or use sharp.
-        // Using sharp ensures valid structure.
-        finalBuffer = await sharp(req.file.buffer)
-          .withMetadata({ exif: { IFD0: exifObj["0th"], GPS: exifObj.GPS, Exif: exifObj.Exif } }) // Sharp handles object or buffer? Sharp prefers buffer usually for .withMetadata({exif: ...}) is limited.
-        // Fallback: Piexifjs is best for JPEG.
+        // For JPEG, use piexifjs to insert EXIF data
         const base64Image = "data:image/jpeg;base64," + req.file.buffer.toString('base64');
         const finalImage = piexif.insert(exifBytes, base64Image);
         finalBuffer = Buffer.from(finalImage.split(',')[1], 'base64');
