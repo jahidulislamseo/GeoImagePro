@@ -98,7 +98,7 @@ export default function AIAssistant({
         </div>
 
         <p className="text-xs text-muted-foreground mt-4">
-          Note: AI features are currently in development mode
+          💡 Tip: AI analysis works best with images containing recognizable landmarks or clear subjects.
         </p>
       </CardContent>
     </Card>
