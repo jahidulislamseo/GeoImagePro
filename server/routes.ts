@@ -224,16 +224,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         exifObj["0th"][piexif.ImageIFD.DocumentName] = metadata.documentName;
       }
 
-      // Add SEO metadata fields
-      if (metadata.imageTitle) {
-        exifObj["0th"][piexif.ImageIFD.XPTitle] = metadata.imageTitle;
-      }
-      if (metadata.caption) {
-        exifObj["0th"][piexif.ImageIFD.XPComment] = metadata.caption;
-      }
-      if (metadata.subject) {
-        exifObj["0th"][piexif.ImageIFD.XPSubject] = metadata.subject;
-      }
+      // Add SEO metadata fields (using standard EXIF fields instead of XP fields)
+      // XP fields require UTF-16 encoding which causes issues, so we use standard fields
 
       // Add keywords to Exif UserComment (more reliable than XPKeywords)
       if (metadata.keywords) {
