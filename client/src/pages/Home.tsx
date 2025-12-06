@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import UploadZone from "@/components/UploadZone";
-import ImageThumbnail from "@/components/ImageThumbnail";
+import ImageGrid from "@/components/ImageGrid";
 import MapInterface from "@/components/MapInterface";
 import MetadataPanel from "@/components/MetadataPanel";
 import LocationSearch from "@/components/LocationSearch";
@@ -35,28 +35,28 @@ type MapLayer = "streets" | "satellite" | "terrain";
 
 export default function Home() {
   const { toast } = useToast();
-  
+
   // Image state
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  
+
   // Location state
   const [latitude, setLatitude] = useState(40.7128);
   const [longitude, setLongitude] = useState(-74.006);
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
   const [mapLayer, setMapLayer] = useState<MapLayer>("streets");
-  
+
   // Metadata state
   const [keywords, setKeywords] = useState("");
   const [description, setDescription] = useState("");
   const [documentName, setDocumentName] = useState("");
-  
+
   // SEO metadata state (initialized with empty strings for controlled inputs)
   const [imageTitle, setImageTitle] = useState<string>("");
   const [caption, setCaption] = useState<string>("");
   const [locationName, setLocationName] = useState<string>("");
   const [subject, setSubject] = useState<string>("");
-  
+
   // Advanced EXIF state
   const [copyright, setCopyright] = useState("");
   const [artist, setArtist] = useState("");
@@ -74,12 +74,12 @@ export default function Home() {
     }));
     const updatedImages = [...images, ...newImages];
     setImages(updatedImages);
-    
+
     // Auto-select the first image if none is selected
     if (selectedImageIndex === null && updatedImages.length > 0) {
       setSelectedImageIndex(0);
     }
-    
+
     toast({
       title: "Images uploaded",
       description: `${files.length} image(s) added successfully`,
@@ -127,19 +127,19 @@ export default function Home() {
   const handleLocationSearch = (query: string) => {
     const mockLat = 40.7128 + (Math.random() - 0.5) * 10;
     const mockLng = -74.006 + (Math.random() - 0.5) * 10;
-    
+
     setLatitude(mockLat);
     setLongitude(mockLng);
-    
+
     const newHistoryItem: SearchHistoryItem = {
       id: Date.now().toString(),
       location: query,
       coordinates: { lat: mockLat, lng: mockLng },
       timestamp: new Date(),
     };
-    
+
     setSearchHistory((prev) => [newHistoryItem, ...prev.slice(0, 4)]);
-    
+
     toast({
       title: "Location found",
       description: `Coordinates set to ${mockLat.toFixed(4)}, ${mockLng.toFixed(4)}`,
@@ -175,7 +175,7 @@ export default function Home() {
     }
 
     const image = images[selectedImageIndex];
-    
+
     try {
       // Create FormData to send image and metadata
       const formData = new FormData();
@@ -209,7 +209,7 @@ export default function Home() {
 
       // Get the processed image blob
       const blob = await response.blob();
-      
+
       // Update the image in state with geotagged flag
       setImages((prev) =>
         prev.map((img, i) =>
@@ -252,7 +252,7 @@ export default function Home() {
     }
 
     const image = images[selectedImageIndex];
-    
+
     try {
       // Create a temporary download link
       const link = document.createElement('a');
@@ -261,7 +261,7 @@ export default function Home() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast({
         title: "Download started",
         description: `${image.file.name} is being downloaded`,
@@ -289,13 +289,30 @@ export default function Home() {
     });
   };
 
+  const handleFileDrop = (file: File, lat: number, lng: number) => {
+    handleFilesSelected([file]);
+    setLatitude(lat);
+    setLongitude(lng);
+
+    // Auto-select the newly added image (it will be the last one)
+    // We need to wait for state update, but we can assume it will be added
+    setTimeout(() => {
+      setSelectedImageIndex(images.length);
+    }, 0);
+
+    toast({
+      title: "Image dropped",
+      description: `Location set to ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+    });
+  };
+
   const selectedImage = selectedImageIndex !== null ? images[selectedImageIndex] : null;
   const selectedCount = images.filter((img) => img.isSelected).length;
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-[1fr_400px] gap-8">
           <div className="space-y-6">
@@ -311,24 +328,14 @@ export default function Home() {
                   onApplyToSelected={handleApplyToSelected}
                 />
 
-                <div>
-                  <h3 className="text-lg font-medium mb-4" data-testid="text-uploaded-images-title">
-                    Uploaded Images ({images.length})
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {images.map((image, index) => (
-                      <ImageThumbnail
-                        key={index}
-                        file={image.file}
-                        preview={image.preview}
-                        hasGeotag={image.hasGeotag}
-                        onRemove={() => handleRemoveImage(index)}
-                        onSelect={() => handleSelectImage(index)}
-                        isSelected={image.isSelected}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <h3 className="text-lg font-medium mb-4" data-testid="text-uploaded-images-title">
+                  Uploaded Images ({images.length})
+                </h3>
+                <ImageGrid
+                  images={images}
+                  onRemove={handleRemoveImage}
+                  onSelect={handleSelectImage}
+                />
               </>
             )}
 
@@ -350,6 +357,7 @@ export default function Home() {
                   setLatitude(lat);
                   setLongitude(lng);
                 }}
+                onFileDrop={handleFileDrop}
               />
             </div>
 
@@ -435,7 +443,7 @@ export default function Home() {
             )}
           </div>
         </div>
-      </main>
+      </main >
 
       <HowItWorks />
       <FAQ />
@@ -447,6 +455,6 @@ export default function Home() {
           </p>
         </div>
       </footer>
-    </div>
+    </div >
   );
 }

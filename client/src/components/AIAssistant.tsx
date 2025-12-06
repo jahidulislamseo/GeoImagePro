@@ -20,67 +20,47 @@ export default function AIAssistant({
 }: AIAssistantProps) {
   const { toast } = useToast();
 
-  const detectLocationMutation = useMutation({
+  const analyzeImageMutation = useMutation({
     mutationFn: async () => {
-      // TODO: Implement AI location detection with Python microservice
-      // Mock response for now
-      return {
-        latitude: 40.7128 + (Math.random() - 0.5) * 0.01,
-        longitude: -74.006 + (Math.random() - 0.5) * 0.01,
-        confidence: 0.85,
-      };
+      if (!imageFile) throw new Error("No image file");
+
+      const formData = new FormData();
+      formData.append("image", imageFile);
+
+      const res = await fetch("/api/ai/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("AI analysis failed");
+      return res.json();
     },
     onSuccess: (data) => {
-      if (onLocationDetected) {
+      if (data.latitude && data.longitude && onLocationDetected) {
         onLocationDetected(data.latitude, data.longitude);
       }
-      toast({
-        title: "Location detected",
-        description: `AI detected location with ${(data.confidence * 100).toFixed(0)}% confidence`,
-      });
-    },
-  });
-
-  const suggestKeywordsMutation = useMutation({
-    mutationFn: async () => {
-      // TODO: Implement AI keyword generation
-      return {
-        keywords: "landscape, nature, mountain, sunset, scenic, outdoor, photography",
-      };
-    },
-    onSuccess: (data) => {
-      if (onKeywordsSuggested) {
+      if (data.keywords && onKeywordsSuggested) {
         onKeywordsSuggested(data.keywords);
       }
-      toast({
-        title: "Keywords generated",
-        description: "AI suggested relevant keywords",
-      });
-    },
-  });
-
-  const generateDescriptionMutation = useMutation({
-    mutationFn: async () => {
-      // TODO: Implement AI description generation
-      return {
-        description: "A stunning landscape photograph featuring majestic mountains during golden hour, with warm sunlight creating beautiful natural lighting across the scene.",
-      };
-    },
-    onSuccess: (data) => {
-      if (onDescriptionGenerated) {
+      if (data.description && onDescriptionGenerated) {
         onDescriptionGenerated(data.description);
       }
+
       toast({
-        title: "Description generated",
-        description: "AI created a detailed description",
+        title: "Analysis Complete",
+        description: `AI analyzed the image successfully${data.confidence ? ` (${(data.confidence * 100).toFixed(0)}% confidence)` : ''}`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Analysis Failed",
+        description: "Could not analyze image. Please try again.",
+        variant: "destructive",
       });
     },
   });
 
-  const isProcessing =
-    detectLocationMutation.isPending ||
-    suggestKeywordsMutation.isPending ||
-    generateDescriptionMutation.isPending;
+
 
   return (
     <Card data-testid="card-ai-assistant">
@@ -94,55 +74,27 @@ export default function AIAssistant({
         <p className="text-sm text-muted-foreground">
           Use AI to analyze your image and automatically generate metadata
         </p>
-        
+
         <div className="space-y-2">
           <Button
             size="sm"
-            variant="outline"
-            onClick={() => detectLocationMutation.mutate()}
-            disabled={!imageFile || isProcessing}
-            className="w-full justify-start"
-            data-testid="button-ai-detect-location"
+            variant="default"
+            onClick={() => analyzeImageMutation.mutate()}
+            disabled={!imageFile || analyzeImageMutation.isPending}
+            className="w-full justify-start bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+            data-testid="button-ai-analyze"
           >
-            {detectLocationMutation.isPending ? (
+            {analyzeImageMutation.isPending ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <Sparkles className="w-4 h-4 mr-2" />
             )}
-            Detect Location from Image
+            Smart Analyze Image (All-in-One)
           </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => suggestKeywordsMutation.mutate()}
-            disabled={!imageFile || isProcessing}
-            className="w-full justify-start"
-            data-testid="button-ai-suggest-keywords"
-          >
-            {suggestKeywordsMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 mr-2" />
-            )}
-            Generate Smart Keywords
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => generateDescriptionMutation.mutate()}
-            disabled={!imageFile || isProcessing}
-            className="w-full justify-start"
-            data-testid="button-ai-generate-description"
-          >
-            {generateDescriptionMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 mr-2" />
-            )}
-            Generate Description
-          </Button>
+          <p className="text-xs text-muted-foreground mt-2">
+            Detects location, generates tags, and writes a description in one click.
+          </p>
         </div>
 
         <p className="text-xs text-muted-foreground mt-4">

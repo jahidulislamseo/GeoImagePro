@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Plus, Minus, Layers, Search, Maximize2, Minimize2, Navigation } from "lucide-react";
+import { Layers, Search, Maximize2, Minimize2, Navigation } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,78 +11,153 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import mapPlaceholderImage from "@assets/stock_images/world_map_atlas_glob_34150d91.jpg";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icon
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 interface MapInterfaceProps {
   latitude?: number;
   longitude?: number;
   onLocationChange: (lat: number, lng: number) => void;
+  onFileDrop?: (file: File, lat: number, lng: number) => void;
 }
 
 type MapLayerType = 'streets' | 'satellite' | 'hybrid' | 'terrain';
+
+function LocationMarker({ position, onLocationChange }: { position: L.LatLngExpression, onLocationChange: (lat: number, lng: number) => void }) {
+  const map = useMap();
+
+  useMapEvents({
+    click(e) {
+      onLocationChange(e.latlng.lat, e.latlng.lng);
+      map.flyTo(e.latlng, map.getZoom());
+    },
+  });
+
+  return position === null ? null : (
+    <Marker position={position}></Marker>
+  )
+}
+
+function MapUpdater({ center, zoom }: { center: [number, number], zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
+
+function DropZone({ onFileDrop }: { onFileDrop?: (file: File, lat: number, lng: number) => void }) {
+  const map = useMap();
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (!onFileDrop) return;
+
+    const container = map.getContainer();
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+
+      const file = files[0];
+      if (!file.type.startsWith('image/')) return;
+
+      // Get the coordinates where the file was dropped
+      const point = map.mouseEventToLatLng(e as any);
+      onFileDrop(file, point.lat, point.lng);
+    };
+
+    container.addEventListener('dragover', handleDragOver);
+    container.addEventListener('dragleave', handleDragLeave);
+    container.addEventListener('drop', handleDrop);
+
+    return () => {
+      container.removeEventListener('dragover', handleDragOver);
+      container.removeEventListener('dragleave', handleDragLeave);
+      container.removeEventListener('drop', handleDrop);
+    };
+  }, [map, onFileDrop]);
+
+  return isDragging ? (
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(59, 130, 246, 0.2)',
+      border: '3px dashed rgb(59, 130, 246)',
+      zIndex: 1000,
+      pointerEvents: 'none',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '24px',
+      fontWeight: 'bold',
+      color: 'rgb(59, 130, 246)'
+    }}>
+      Drop image here to set location
+    </div>
+  ) : null;
+}
 
 export default function MapInterface({
   latitude = 40.7128,
   longitude = -74.006,
   onLocationChange,
+  onFileDrop
 }: MapInterfaceProps) {
-  const [markerPos, setMarkerPos] = useState({ lat: latitude, lng: longitude });
   const [zoom, setZoom] = useState(13);
   const [mapLayer, setMapLayer] = useState<MapLayerType>('streets');
   const [searchQuery, setSearchQuery] = useState('');
   const [textSearchQuery, setTextSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mapUrl, setMapUrl] = useState('');
   const [searchType, setSearchType] = useState<'place' | 'text'>('place');
   const { toast } = useToast();
 
-  useEffect(() => {
-    setMarkerPos({ lat: latitude, lng: longitude });
-  }, [latitude, longitude]);
-
-  useEffect(() => {
-    const width = 800;
-    const height = 500;
-    
-    const getStaticMapUrl = () => {
-      // Using different providers for each layer
-      if (mapLayer === 'streets') {
-        // OpenStreetMap static image via staticmap.openstreetmap.de
-        return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik`;
-      } else if (mapLayer === 'satellite') {
-        // ESRI World Imagery
-        const z = zoom;
-        const x = Math.floor((longitude + 180) / 360 * Math.pow(2, z));
-        const y = Math.floor((1 - Math.log(Math.tan(latitude * Math.PI / 180) + 1 / Math.cos(latitude * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
-        return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
-      } else if (mapLayer === 'hybrid') {
-        // ESRI World Imagery with labels
-        const z = zoom;
-        const x = Math.floor((longitude + 180) / 360 * Math.pow(2, z));
-        const y = Math.floor((1 - Math.log(Math.tan(latitude * Math.PI / 180) + 1 / Math.cos(latitude * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
-        return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
-      } else {
-        // Terrain - OpenTopoMap
-        return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik`;
-      }
-    };
-    
-    const url = getStaticMapUrl();
-    setMapUrl(url);
-  }, [latitude, longitude, zoom, mapLayer]);
-
-  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const lat = latitude + (0.5 - y / rect.height) * 0.1;
-    const lng = longitude + (x / rect.width - 0.5) * 0.1;
-    
-    setMarkerPos({ lat, lng });
-    onLocationChange(lat, lng);
+  const layerUrls: Record<MapLayerType, string> = {
+    streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    hybrid: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', // Simplified for now, real hybrid needs overlay
+    terrain: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
   };
 
+  const layerAttributions: Record<MapLayerType, string> = {
+    streets: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    satellite: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    hybrid: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    terrain: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+  };
 
   const layerLabels: Record<MapLayerType, string> = {
     streets: '🗺️ Streets',
@@ -104,10 +179,9 @@ export default function MapInterface({
         const { lat, lon, display_name } = results[0];
         const newLat = parseFloat(lat);
         const newLng = parseFloat(lon);
-        
-        setMarkerPos({ lat: newLat, lng: newLng });
+
         onLocationChange(newLat, newLng);
-        
+
         toast({
           title: "Location found",
           description: display_name,
@@ -141,10 +215,9 @@ export default function MapInterface({
         const { lat, lon, display_name } = results[0];
         const newLat = parseFloat(lat);
         const newLng = parseFloat(lon);
-        
-        setMarkerPos({ lat: newLat, lng: newLng });
+
         onLocationChange(newLat, newLng);
-        
+
         toast({
           title: "Location found",
           description: display_name,
@@ -179,10 +252,10 @@ export default function MapInterface({
       (position) => {
         const newLat = position.coords.latitude;
         const newLng = position.coords.longitude;
-        
-        setMarkerPos({ lat: newLat, lng: newLng });
+
         onLocationChange(newLat, newLng);
-        
+        setZoom(15);
+
         toast({
           title: "Current location detected",
           description: `${newLat.toFixed(4)}, ${newLng.toFixed(4)}`,
@@ -205,146 +278,57 @@ export default function MapInterface({
   return (
     <Card className={`overflow-hidden transition-all ${isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''}`} data-testid="card-map">
       <div className={`relative bg-muted ${isFullscreen ? 'h-screen' : 'h-[500px]'}`}>
-        {/* Map/Satellite Toggle & Search Bar */}
-        <div className="absolute top-4 left-4 z-10 bg-card/95 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden">
-          <Tabs value={mapLayer === 'streets' ? 'map' : 'satellite'} onValueChange={(v) => setMapLayer(v === 'map' ? 'streets' : 'satellite')} className="w-full">
-            <div className="flex border-b">
-              <TabsList className="bg-transparent border-0 rounded-none h-10">
-                <TabsTrigger 
-                  value="map" 
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-none px-6"
-                  data-testid="tab-map"
+
+        <div className="absolute top-4 left-4 z-[1000] bg-card/95 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden max-w-[90%] sm:max-w-md">
+          <Tabs value="controls" className="w-full">
+            <div className="p-2 space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Search place..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handlePlaceSearch()}
+                  className="w-full h-8 text-sm"
+                />
+                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handlePlaceSearch}>
+                  <Search className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={getCurrentLocation}
+                  className="flex-1 h-8 text-xs"
                 >
-                  Map
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="satellite" 
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-none px-6"
-                  data-testid="tab-satellite"
-                >
-                  Satellite
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            
-            {/* Search Tabs */}
-            <div className="p-2">
-              <Tabs value={searchType} onValueChange={(v) => setSearchType(v as 'place' | 'text')} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-2">
-                  <TabsTrigger value="place" data-testid="tab-place-search">Place Search</TabsTrigger>
-                  <TabsTrigger value="text" data-testid="tab-text-search">Text Search</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="place" className="mt-0">
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Search for a place or address"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handlePlaceSearch()}
-                      className="w-80"
-                      data-testid="input-place-search"
-                    />
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      onClick={handlePlaceSearch}
-                      data-testid="button-place-search"
-                    >
-                      <Search className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="text" className="mt-0">
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Enter address or coordinates"
-                      value={textSearchQuery}
-                      onChange={(e) => setTextSearchQuery(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleTextSearch()}
-                      className="w-80"
-                      data-testid="input-text-search"
-                    />
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      onClick={handleTextSearch}
-                      data-testid="button-text-search"
-                    >
-                      <Search className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={getCurrentLocation}
-                data-testid="button-current-location"
-                className="w-full mt-2"
-              >
-                <Navigation className="w-4 h-4 mr-2" />
-                Get Current Location
-              </Button>
+                  <Navigation className="w-3 h-3 mr-1" />
+                  Locate Me
+                </Button>
+              </div>
             </div>
           </Tabs>
         </div>
 
-        <div
-          className="w-full h-full cursor-crosshair relative overflow-hidden"
-          onClick={handleMapClick}
-          data-testid="div-map-container"
-        >
-          {mapUrl && (
-            <img
-              src={mapUrl}
-              alt="Map"
-              className="w-full h-full object-cover"
-              data-testid="img-map"
-            />
-          )}
-          {!mapUrl && (
-            <div className="w-full h-full relative overflow-hidden">
-              <img 
-                src={mapPlaceholderImage} 
-                alt="World Map" 
-                className="w-full h-full object-cover opacity-40"
-              />
-              <div className="absolute inset-0 bg-gradient-to-br from-background/60 to-background/80 flex items-center justify-center backdrop-blur-sm">
-                <div className="text-center space-y-4 p-8">
-                  <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-                    <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-foreground mb-2">Interactive Map</h3>
-                    <p className="text-sm text-muted-foreground max-w-sm">
-                      Use the search above to find a location or enter coordinates manually.<br/>
-                      Click on the map to place a marker.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          <div
-            className="absolute transform -translate-x-1/2 -translate-y-full"
-            style={{
-              left: '50%',
-              top: '50%',
-            }}
-            data-testid="icon-map-marker"
+        <div className="w-full h-full z-0">
+          <MapContainer
+            center={[latitude, longitude]}
+            zoom={zoom}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={false} // We will add custom zoom controls if needed, or use default
           >
-            <MapPin className="w-8 h-8 text-destructive fill-destructive drop-shadow-lg" />
-          </div>
+            <TileLayer
+              attribution={layerAttributions[mapLayer]}
+              url={layerUrls[mapLayer]}
+            />
+            <LocationMarker position={[latitude, longitude]} onLocationChange={onLocationChange} />
+            <MapUpdater center={[latitude, longitude]} zoom={zoom} />
+            <DropZone onFileDrop={onFileDrop} />
+          </MapContainer>
         </div>
 
-        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+
+        <div className="absolute top-4 right-4 flex flex-col gap-2 z-[1000]">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -352,8 +336,9 @@ export default function MapInterface({
                 variant="secondary"
                 data-testid="button-map-layers"
                 title="Map layers"
+                className="bg-white/90 hover:bg-white shadow-md"
               >
-                <Layers className="w-4 h-4" />
+                <Layers className="w-4 h-4 text-black" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -362,7 +347,6 @@ export default function MapInterface({
                   key={layer}
                   onClick={() => setMapLayer(layer)}
                   className={mapLayer === layer ? 'bg-accent' : ''}
-                  data-testid={`menu-item-${layer}`}
                 >
                   {layerLabels[layer]}
                 </DropdownMenuItem>
@@ -373,37 +357,16 @@ export default function MapInterface({
             size="icon"
             variant="secondary"
             onClick={toggleFullscreen}
-            data-testid="button-fullscreen"
             title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            className="bg-white/90 hover:bg-white shadow-md"
           >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </Button>
-          <Button
-            size="icon"
-            variant="secondary"
-            onClick={() => setZoom(Math.min(zoom + 1, 18))}
-            data-testid="button-zoom-in"
-            title="Zoom in"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="secondary"
-            onClick={() => setZoom(Math.max(zoom - 1, 1))}
-            data-testid="button-zoom-out"
-            title="Zoom out"
-          >
-            <Minus className="w-4 h-4" />
+            {isFullscreen ? <Minimize2 className="w-4 h-4 text-black" /> : <Maximize2 className="w-4 h-4 text-black" />}
           </Button>
         </div>
 
-        <div className="absolute bottom-4 left-4 bg-card/95 backdrop-blur-sm px-3 py-2 rounded-md shadow-md z-10">
-          <p className="text-xs font-mono" data-testid="text-map-coordinates">
-            📍 {markerPos.lat.toFixed(6)}, {markerPos.lng.toFixed(6)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            🔍 Zoom: {zoom}x • {layerLabels[mapLayer]}
+        <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm px-3 py-2 rounded-md shadow-md z-[1000] text-card-foreground">
+          <p className="text-xs font-mono">
+            📍 {latitude.toFixed(6)}, {longitude.toFixed(6)}
           </p>
         </div>
       </div>
