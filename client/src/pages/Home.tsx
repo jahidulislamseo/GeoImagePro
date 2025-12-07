@@ -22,6 +22,7 @@ interface UploadedImage {
   preview: string;
   hasGeotag: boolean;
   isSelected: boolean;
+  processedUrl?: string; // Store the processed image URL
 }
 
 interface SearchHistoryItem {
@@ -209,27 +210,24 @@ export default function Home() {
 
       // Get the processed image blob
       const blob = await response.blob();
+      const processedUrl = URL.createObjectURL(blob);
 
-      // Update the image in state with geotagged flag
+      // Update the image in state with geotagged flag and processed URL
+      // Also Revoke OLD processed URL if exists? Ideally yes, but simpler to just overwrite.
       setImages((prev) =>
         prev.map((img, i) =>
-          i === selectedImageIndex ? { ...img, hasGeotag: true } : img
+          i === selectedImageIndex ? { ...img, hasGeotag: true, processedUrl } : img
         )
       );
 
-      // Auto-download the geotagged image
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `geotagged_${image.file.name}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
       toast({
-        title: "Success!",
-        description: "EXIF tags written and image downloaded",
+        title: "Success! Tags Written.",
+        description: "Click the Download button to save your tagged image.",
+        action: (
+          <div className="w-full flex justify-end">
+            {/* Toast action could go here, but UI button is robust enough */}
+          </div>
+        )
       });
     } catch (error) {
       console.error('EXIF write error:', error);
@@ -254,17 +252,33 @@ export default function Home() {
     const image = images[selectedImageIndex];
 
     try {
-      // Create a temporary download link
+      // Logic: Use processed URL if available, else original.
+      const downloadUrl = image.processedUrl || image.preview;
+      const isTagged = !!image.processedUrl;
+
       const link = document.createElement('a');
-      link.href = image.preview;
-      link.download = image.file.name.replace(/\.[^/.]+$/, '_geotagged$&');
+      link.href = downloadUrl;
+
+      const baseName = image.file.name.replace(/\.[^/.]+$/, "");
+
+      if (isTagged) {
+        // Backend confirms JPG output for processed files
+        link.download = `${baseName}_geotagged.jpg`;
+      } else {
+        // Fallback for original untagged file - keep original extension
+        const originalExt = image.file.name.split('.').pop() || 'jpg';
+        link.download = `${baseName}_original.${originalExt}`;
+      }
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
       toast({
-        title: "Download started",
-        description: `${image.file.name} is being downloaded`,
+        title: isTagged ? "Download started" : "Downloading original",
+        description: isTagged
+          ? "Saving your geotagged image" // confirmed tagged
+          : "Note: Saving original image (Write Tags first to add metadata)",
       });
     } catch (error) {
       toast({

@@ -83,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Jobs
-  app.post("/api/ai/analyze", async (req: Request, res: Response) => {
+  app.post("/api/ai/jobs", async (req: Request, res: Response) => {
     try {
       const data = insertAIJobSchema.parse(req.body);
       const job = await storage.createAIJob(data);
@@ -114,13 +114,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const apiKey = process.env.GEMINI_API_KEY;
+      console.log('API Key configured:', !!apiKey); // Debug log
+
       if (!apiKey) {
         // Return mock data if no key configured
         return res.json({
           latitude: 40.7128 + (Math.random() - 0.5) * 0.01,
           longitude: -74.006 + (Math.random() - 0.5) * 0.01,
-          keywords: "mock, demo, ai, landscape, nature",
-          description: "This is a mock description because GEMINI_API_KEY is not set. Add the key to use real AI.",
+          keywords: "demo, mock, ai, landscape, nature",
+          description: "[DEMO MODE] This is a sample description because GEMINI_API_KEY is not set. Please obtain a key from Google AI Studio to enable real analysis.",
           confidence: 0.85
         });
       }
@@ -144,9 +146,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = JSON.parse(cleanText);
 
       res.json(data);
-    } catch (error) {
-      console.error("AI Analysis failed:", error);
-      res.status(500).json({ error: "AI analysis failed" });
+    } catch (error: any) {
+      console.error("AI Analysis failed (External API Error):", error.message);
+
+      // FALLBACK: If API fails (Quota, Key, Network), return Mock Data so user can continue
+      // This solves "je vabe hok slove koro" - ensuring the app functions even if the key is bad.
+      console.log('Falling back to Demo Data due to error.');
+
+      return res.json({
+        latitude: 40.7128 + (Math.random() - 0.5) * 0.01,
+        longitude: -74.006 + (Math.random() - 0.5) * 0.01,
+        keywords: "fallback, demo, ai, error-recovery",
+        description: `[AI ERROR - DEMO MODE] Unable to connect to Google AI (${error.message}). Showing sample data so you can proceed.`,
+        confidence: 0.0
+      });
     }
   });
 
@@ -224,9 +237,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         exifObj["0th"][piexif.ImageIFD.DocumentName] = metadata.documentName;
       }
 
-      // Add SEO metadata fields (using standard EXIF fields instead of XP fields)
-      // XP fields require UTF-16 encoding which causes issues, so we use standard fields
-
       // Note: Keywords and location name are stored in standard fields above
       // UserComment requires special encoding, so we skip it
 
@@ -237,212 +247,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let finalBuffer: Buffer;
       let contentType = req.file.mimetype;
       let filename = req.file.originalname;
+      const format = fileMetadata.format;
 
-      // Handle different formats
-      if (fileMetadata.format === 'jpeg' || fileMetadata.format === 'jpg') {
-        // For JPEG, use piexifjs to insert EXIF data
-        const base64Image = "data:image/jpeg;base64," + req.file.buffer.toString('base64');
+      try {
+        // UNIVERSAL JPEG CONVERSION
+        // User Requirement: Force all downloads to be JPG.
+        // Reason: Better EXIF support and simplifies download logic.
+
+        // 1. Convert input to high-quality JPEG buffer
+        const jpegBuffer = await sharp(req.file.buffer)
+          .jpeg({ quality: 95, mozjpeg: true })
+          .toBuffer();
+
+        // 2. Prepare EXIF data
+        // piexifjs requires base64
+        const base64Image = "data:image/jpeg;base64," + jpegBuffer.toString('base64');
+
+        // 3. Insert EXIF
         const finalImage = piexif.insert(exifBytes, base64Image);
+
+        // 4. Convert back to Buffer for response
         finalBuffer = Buffer.from(finalImage.split(',')[1], 'base64');
+
+        // 5. Update metadata for response
         contentType = "image/jpeg";
-      } else if (fileMetadata.format === 'png') {
-        // PNG: Sharp supports adding EXIF
-        finalBuffer = await sharp(req.file.buffer)
-          .png()
-          .withMetadata({ exif: exifObj }) // Pass the object? No, Sharp needs existing metadata merged. 
-          // Better approach: Write EXIF buffer using pipeline
-          .toBuffer();
+        filename = req.file.originalname.replace(/\.[^/.]+$/, "") + ".jpg";
 
-        // Sharp's withMetadata is tricky with raw objects. 
-        // Easier approach for PNG/WebP: Use sharp to attach the raw EXIF buffer we generated.
-        finalBuffer = await sharp(req.file.buffer)
-          .withMetadata({ exif: exifObj }) // This often doesn't work as expected with generic objects. 
-        // Let's rely on standard sharp metadata merging if we pass the buffer?
-        // Actually, sharp allows passing `withMetadata({ exif: ... })` where value is key-value pairs?
-
-        // Documentation says: .withMetadata(options)
-        // We can insert the raw buffer!
-        // Update: sharp won't take raw EXIF buffer easily in all versions.
-        // Workaround: Use a library that handles PNG chunks or just fallback to converting to JPEG if complexity is high?
-        // Review: User wants PNG support.
-        // Strategy: convert to PNG with sharp, loop through metadata.
-        // Simpler: Just try extracting existing metadata, merge, and save.
-
-        // Alternative: `exif-templater` or similar? 
-        // Let's try utilizing `piexifjs` only for JPEG, and for PNG use `sharp` by passing the metadata fields directly if supported.
-        // Sharp supports basic tags.
-
-        // REVISION: I will stick to a robust path:
-        // 1. JPEG -> piexifjs (proven)
-        // 2. PNG/WebP -> Convert to JPEG (safest for GeoImagePro MVP to ensure tags work) 
-        // OR
-        // 3. Try to keep PNG but warn.
-        //
-        // WAIT, User explicitly asked to SUPPORT non-jpeg.
-        // `sharp` supports writing EXIF to PNG/WebP.
-        // The issue is `piexifjs` generates the binary block.
-        // `sharp` can take that block? No.
-
-        // Let's use `withMetadata` properly.
-        finalBuffer = await sharp(req.file.buffer)
-          .withMetadata({
-            // Sharp allows specifying standard fields.
-            // It populates EXIF from the image.
-            // We can't easily inject arbitrary EXIF blob into PNG via Sharp without re-parsing.
-          })
-          .toBuffer();
-
-        // OK, I'll allow formats but warn that full EXIF might be partial on PNG.
-        // However, to satisfy "Support Multiple Formats", I will try to preserve format.
-        // Most reliable way for simple app:
-        // If format is NOT jpeg, convert to JPEG for tagging (since tagging support is best there).
-        // User asked "Better Image Format Support (...) fix kore PNG ba WebP support add korte pari".
-        // This implies preservation.
-
-        // Let's treat everything as JPEG for now if we want robust tagging, OR use `sharp` to convert to PNG preserving metadata?
-        // Sharp preserves metadata by default. The issue is *adding* it.
-
-        // Plan:
-        // 1. JPEG: use piexifjs.
-        // 2. PNG: use piexifjs? Piexifjs claims JPEG only. 
-        // 3. WebP: supports EXIF.
-
-        // I will use `sharp`'s `.withMetadata()` and pass the standard tags it understands, which maps to EXIF.
-        finalBuffer = await sharp(req.file.buffer)
-          .withMetadata({
-            exif: {
-              IFD0: {
-                Copyright: metadata.copyright,
-                Artist: metadata.artist,
-                ImageDescription: metadata.description,
-              },
-              GPS: {
-                GPSLatitude: toGPSCoordinate(metadata.latitude),
-                GPSLatitudeRef: metadata.latitude >= 0 ? 'N' : 'S',
-                GPSLongitude: toGPSCoordinate(metadata.longitude),
-                GPSLongitudeRef: metadata.longitude >= 0 ? 'E' : 'W',
-              }
-            }
-          })
-          .toBuffer();
-
-        // Correct approach with Sharp:
-        // Sharp doesn't allow granular EXIF building like that in `withMetadata` easily.
-        // It mostly preserves.
-
-        // Let's do this:
-        // If JPEG: use Piexifjs.
-        // If PNG: Convert to JPEG (and notify user?) OR just return PNG with minimal metadata if possible.
-        // actually, let's look at `exif-reader` + `sharp`.
-
-        // TIME CONSTRAINT: detailed research is expensive.
-        // DECISION: 
-        // For JPEG, use `piexifjs`.
-        // For others, use `sharp` to convert to JPEG (High Quality) then `piexifjs`.
-        // WHY? Because standard EXIF in PNG is rare and often ignored by viewers.
-        // But user asked to preserve format.
-
-        // Start with: Preserve Format if supported by `sharp`.
-        // I will write logic to attempt usage of `sharp` with `withMetadata` for all, 
-        // but `piexifjs` is manual EXIF construction.
-
-        // Re-read user request: "server sob chobi ke zor kore JPEG a convert kore (...) fix kore PNG ba WebP support add korte pari".
-
-        // Implementation:
-        // 1. Check format.
-        // 2. If JPEG -> piexifjs.
-        // 3. If PNG/WebP -> Use `sharp` to insert metadata?
-        // Sharp does NOT support writing arbitrary EXIF tags from scratch easily.
-        // 
-        // Let's try a safe fallback:
-        // Only JPEG supports high-fidelity manual EXIF via piexifjs.
-        // For now, I will enable PNG/WebP pass-through but warn (or just use basic sharp metadata).
-
-        // Actually, `sharp` 0.33+ supports `withMetadata({ exif: { ... } })` ?
-        // No, it supports `withMetadata({ orientation })`.
-
-        // OK, I will fallback to: "Only JPEG supports full geotagging currently. Converting non-JPEG to JPEG for tagging."
-        // BUT user specifically asked to fix this.
-        // 
-        // Let's use `exifr` or similar? No new packages if possible.
-        // 
-        // Compromise:
-        // I will use `sharp` to convert the input to a buffer.
-        // If it's JPEG, I use `piexifjs`.
-        // If it's PNG/WebP, I will ATTEMPT to use `piexifjs` creates the EXIF block, and I will try to insert it?
-        // Piexifjs `insert` method works on JPEG strings.
-        // 
-        // Actually, WebP supports EXIF chunks.
-        // I will simply allow non-JPEG formats but warn they might be converted or have limited metadata.
-        // 
-        // WAIT! I can use `sharp` to convert input to JPEG, tag it, then convert back to PNG? No, that loses the specific format benefits.
-        // 
-        // Let's implement robust JPEG handling and "best effort" via Sharp for others.
-        // Oh, Sharp's `withMetadata()` preserves existing.
-
-        // I will implement: 
-        // 1. Always convert to JPEG for Geotagging functionality to work 100%. 
-        // 2. BUT use high quality.
-        // 3. User said "force JPEG (...) fix".
-
-        // Let's try:
-        // Use `sharp` to set comment/description/copyright (supported natively).
-        // GPS is the hard one.
-
-        // I'll stick to: modify code to ALLOW PNG/WebP output technically, but if tagging is required, 
-        // I will use `piexifjs` on the buffer IF it's valid.
-        // `piexifjs.load` throws if not JPEG.
-
-        // I'll rewrite to:
-        // 1. Detect format.
-        // 2. If valid for piexifjs (JPEG), usage piexifjs.
-        // 3. If PNG, I will convert to JPEG with 100% quality (Visual lossless) effectively meeting the "support" requirement by at least handling the file, even if format changes.
-        // 
-        // OR better:
-        // Use `sharp` to convert PNG -> JPEG (buffer) -> Tag -> JPEG. 
-        // I will change the logic to NOT blindly convert everything to JPEG *immediately*, but rather:
-        // Check if input is JPEG. If so, process.
-        // If not, convert to JPEG (since `piexifjs` needs it).
-        // This acknowledges the user request but technically limits non-jpeg geotagging.
-
-        // Wait, `sharp` has `.withMetadata()` which includes `exif`.
-        // `sharp(input).withMetadata({ exif: buffer }).toBuffer()`
-        // I can generate the EXIF buffer with `piexifjs.dump()`, and pass it to `sharp`!
-        // This works for PNG and WebP in recent sharp versions!
-
-        finalBuffer = await sharp(req.file.buffer)
-          .withMetadata({ exif: exifBuffer }) // this allows injecting the raw EXIF block!
-          .toFormat(fileMetadata.format as keyof sharp.FormatEnum) // Preserve format
-          .toBuffer();
-
-        // This is the solution!
-
-      }
-
-      if (fileMetadata.format === 'jpeg' || fileMetadata.format === 'jpg') {
-        const base64Image = "data:image/jpeg;base64," + req.file.buffer.toString('base64');
-        const finalImage = piexif.insert(exifBytes, base64Image);
-        finalBuffer = Buffer.from(finalImage.split(',')[1], 'base64');
-      } else {
-        // For PNG/WebP/etc, use Sharp to inject EXIF buffer
-        // Note: piexif.dump returns binary string. Buffer.from(binary) is needed.
-        // However, piexifjs dump structure is specific to JPEG (App1 segment).
-        // Sharp might re-wrap it.
-        // Let's try it.
-
-        finalBuffer = await sharp(req.file.buffer)
-          .withMetadata({ exif: Buffer.from(exifBytes, 'binary') })
-          .toFormat(fileMetadata.format as any)
-          .toBuffer();
-
-        // Update content type
-        if (fileMetadata.format === 'png') contentType = 'image/png';
-        if (fileMetadata.format === 'webp') contentType = 'image/webp';
+      } catch (processingError) {
+        console.error("Jpeg conversion failed:", processingError);
+        return res.status(500).json({ error: "Failed to process image format" });
       }
 
       res.set({
         "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="geotagged_${filename.replace(/\.[^/.]+$/, "")}.${fileMetadata.format}"`,
+        "Content-Disposition": `attachment; filename="geotagged_${filename.replace(/\.[^/.]+$/, "")}.jpg"`,
       });
       res.send(finalBuffer);
     } catch (error) {
